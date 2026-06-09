@@ -3,12 +3,9 @@ package docker
 import (
 	"context"
 	"fmt"
-
-	"github.com/docker/docker/client"
 )
 
-func verifyCleanup(ctx context.Context, cli *client.Client, envID string) error {
-	_ = cli
+func verifyCleanup(ctx context.Context, envID string) error {
 	project := projectName(envID)
 
 	containers, err := dockerIDs(

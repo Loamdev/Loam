@@ -21,11 +21,11 @@ const (
 )
 
 type DockerManager struct {
-	client        *client.Client
-	startupTimout time.Duration
-	pollInterval  time.Duration
-	mu            sync.RWMutex
-	composeFiles  map[string]string
+	client         *client.Client
+	startupTimeout time.Duration
+	pollInterval   time.Duration
+	mu             sync.RWMutex
+	composeFiles   map[string]string
 }
 
 func NewDockerManager() (*DockerManager, error) {
@@ -35,10 +35,10 @@ func NewDockerManager() (*DockerManager, error) {
 	}
 
 	return &DockerManager{
-		client:        cli,
-		startupTimout: defaultStartupTimeout,
-		pollInterval:  defaultPollInterval,
-		composeFiles:  make(map[string]string),
+		client:         cli,
+		startupTimeout: defaultStartupTimeout,
+		pollInterval:   defaultPollInterval,
+		composeFiles:   make(map[string]string),
 	}, nil
 }
 
@@ -53,7 +53,7 @@ func (m *DockerManager) CreateEnvironment(envID, composeFilePath string) error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), m.startupTimout)
+	ctx, cancel := context.WithTimeout(context.Background(), m.startupTimeout)
 	defer cancel()
 
 	if err := m.composeUp(ctx, envID, composeFilePath); err != nil {
@@ -84,13 +84,13 @@ func (m *DockerManager) DestroyEnvironment(envID string) error {
 		return fmt.Errorf("compose file path not found for environment %s", envID)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), m.startupTimout)
+	ctx, cancel := context.WithTimeout(context.Background(), m.startupTimeout)
 	defer cancel()
 
 	if err := m.composeDown(ctx, envID, composeFilePath); err != nil {
 		return err
 	}
-	if err := verifyCleanup(ctx, m.client, envID); err != nil {
+	if err := verifyCleanup(ctx, envID); err != nil {
 		return err
 	}
 	m.mu.Lock()
