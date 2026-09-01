@@ -1,0 +1,108 @@
+# golangci-lint configuration for Playbrige.
+#
+# Pinned toolchain: golangci-lint v2.x (see GOLANGCI_LINT_VERSION in
+# .github/workflows/ci.yml). The v2 schema is required because no golangci-lint
+# v1.x release can type-check a `go 1.25` module.
+#
+# Run it locally with:  golangci-lint run ./...     (or: make lint)
+# Auto-fix what can be: golangci-lint run --fix ./...
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  # Only report on the module's own code; generated/vendored trees are excluded below.
+  modules-download-mode: readonly
+
+linters:
+  # "standard" = errcheck, govet, ineffassign, staticcheck, unused.
+  # staticcheck in v2 also subsumes the old gosimple (S1xxx) checks.
+  default: standard
+  enable:
+    - bodyclose
+    - errorlint
+    - gocritic
+    - misspell
+    - nilerr
+    - revive
+    - unconvert
+    - whitespace
+
+  settings:
+    errcheck:
+      # An ignored type assertion is a panic waiting to happen.
+      check-type-assertions: true
+      # Blank-assigned errors (`_ = f()`) are an explicit, readable choice.
+      check-blank: false
+
+    gocritic:
+      enabled-tags:
+        - diagnostic
+        - performance
+      settings:
+        hugeParam:
+          sizeThreshold: 128
+        rangeValCopy:
+          sizeThreshold: 256
+
+    govet:
+      enable:
+        - nilness
+        - sortslice
+        - unusedwrite
+
+    misspell:
+      locale: US
+
+    revive:
+      severity: warning
+      # Explicit rule list: revive's default set includes `exported` and
+      # `package-comments`, which demand a doc comment on every exported symbol.
+      # Strict, not absurd - the rules below catch real problems only.
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: early-return
+        - name: empty-block
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unexported-return
+        - name: unreachable-code
+        - name: use-any
+        - name: var-declaration
+        - name: var-naming
+
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+    rules:
+      # Tests are allowed to be terse about cleanup errors and helper shapes.
+      - path: _test\.go
+        linters:
+          - bodyclose
+          - errcheck
+          - gocritic
+
+issues:
+  # Show everything; a truncated report hides real problems.
+  max-issues-per-linter: 0
+  max-same-issues: 0

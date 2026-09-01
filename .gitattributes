@@ -1,0 +1,19 @@
+# Normalise line endings so a Windows clone does not fail `gofmt -l .`
+* text=auto eol=lf
+
+# Explicitly LF: the Go toolchain, make, and the shell all expect it.
+*.go      text eol=lf
+*.mod     text eol=lf
+*.sum     text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.sql     text eol=lf
+*.md      text eol=lf
+*.sh      text eol=lf
+Makefile  text eol=lf
+
+# Binary: never touch.
+*.png     binary
+*.jpg     binary
+*.gif     binary
+*.ico     binary

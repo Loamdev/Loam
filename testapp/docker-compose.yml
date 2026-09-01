@@ -1,0 +1,59 @@
+# Playbrige test target (spec section 10).
+#
+# This is the fixture every phase's acceptance test runs against. It is a plain,
+# boring Compose + Postgres repo on purpose: `playbrige up` must work here with
+# zero config.
+#
+# Deliberate properties (do not "clean these up"):
+#   * No `version:` key        - obsolete in Compose v2, it only emits a warning.
+#   * No `container_name:`     - fixed names would collide, and phase 1 must be able
+#                                to run two isolated stacks (`-p pb_a`, `-p pb_b`)
+#                                at the same time.
+#   * Named volume `pgdata`    - compose namespaces it as <project>_pgdata, so the
+#                                phase 1 teardown test can prove `down -v` reclaims it.
+#   * `db` env is map form, `web` env is list form - the compose parser must accept both.
+#   * Credentials below are throwaway local test values, not secrets.
+
+services:
+  # Postgres under test. Port 5433 on the host so it never fights a locally
+  # installed Postgres on 5432. initdb/ is mounted read-only, so the schema in
+  # initdb/001_schema.sql is created on first boot of a fresh volume.
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: apppass
+      POSTGRES_DB: appdb
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d appdb"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 3s
+
+  # Trivial web service. It exists only so App URL detection has a non-db
+  # published port to find (spec section 10 explicitly allows omitting a real web
+  # app). It does not talk to the DB; it starts in about a second and never flakes.
+  web:
+    image: nginx:alpine
+    environment:
+      - NGINX_ENTRYPOINT_QUIET_LOGS=1
+    ports:
+      - "8080:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+      start_period: 2s
+
+volumes:
+  pgdata:
