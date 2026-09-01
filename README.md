@@ -161,23 +161,37 @@ full parking lot and the reasoning.
 - **Not test infrastructure.** No CI integration, GitHub App, PR environments, MCP server, agent API,
   login/session injection, snapshots, branching, or flaky-test triage.
 
+## Documentation
+
+| I want to… | Read |
+|---|---|
+| Understand how the code works, before changing it | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| Set up, run the tests, open a PR | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) |
+| Know what the tool is required to do | [`docs/PLAYBRIGE_MVP_BUILD_SPEC.md`](docs/PLAYBRIGE_MVP_BUILD_SPEC.md) |
+| Know why something was built this way | [`docs/BUILD_SESSION_LOG.md`](docs/BUILD_SESSION_LOG.md) |
+| Know what was deliberately left out | [`LATER.md`](LATER.md) |
+
+[`docs/README.md`](docs/README.md) indexes all of it and suggests a reading order.
+
 ## Contributing
 
-- One branch per phase, one PR per phase, in phase order. A phase merges only once its acceptance
-  test in the spec passes.
-- Stay inside the phase you are on. Anything tempting from a later phase, or from `LATER.md`, stays
-  out.
-- Package signatures are frozen by the build contract — implement them, do not rename or reshape
-  them.
-- CI must be green before merge: **fmt, vet, lint, test, tidy, build**. Locally that is:
+Full guide in [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md). The short version:
+
+- Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) before changing `internal/`. Several parts
+  look wrong until you know why they are that way — two of them deliberately depart from the spec
+  because the spec's suggestion was incorrect.
+- Three test tiers. Only the first needs no Docker:
 
 ```sh
-gofmt -l .          # must print nothing
-go vet ./...
-go test ./...
-go mod tidy         # must leave go.mod and go.sum unchanged
-go build ./...
+go test ./...                                        # unit
+PLAYBRIGE_TEST_DB=… go test ./... -run Fixture       # integration, needs a live Postgres
+go test -tags=e2e -timeout 15m .                     # end-to-end, needs Docker
+make ci                                              # fmt + vet + test + build
 ```
 
-- Never log or persist a real password; mask them in printed output. Use `COPY`, never row-by-row
-  `INSERT`. Every foreign key value must come from a parent row that exists.
+- CI runs eight jobs and all must be green: **fmt, vet, lint, test, tidy, build, integration, e2e**.
+  Pin golangci-lint to **v2.12.2** locally to match it.
+- The rules that never bend: never log or persist a real password, mask them in printed output; use
+  `COPY`, never row-by-row `INSERT`; every foreign key value must come from a parent row that exists;
+  the zero-config path must keep working. Anything you decide not to do goes in `LATER.md` with the
+  reason.
