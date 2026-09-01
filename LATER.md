@@ -116,3 +116,21 @@ booting, and generate rows for independent branches of the dependency graph conc
 because parents must still be committed before children, so it needs the topological order to drive a
 worker pool rather than a simple loop — and because the sequential version must first be fast enough
 to prove where the time actually goes.
+
+---
+
+## Known limitations found while building
+
+### Two stacks from the same repo collide on published host ports
+
+Phase 1 gives every `up` its own compose project, so containers, networks, and volumes are genuinely
+isolated. Host ports are not: a compose file that publishes `5433:5432` binds that port on the
+machine, so a second `up` of the *same* repo fails with an address-already-in-use error from Docker
+before Playbrige gets a say. Isolation across *different* repos, or across copies with different
+published ports, works today.
+
+The fix is to stop publishing the compose file's fixed ports and let Docker assign ephemeral ones,
+then read the real port back with `docker compose -p <project> port db 5432`. Deferred because spec
+§6 phase 2 explicitly specifies reading the published host port out of the `ports:` mapping
+(`5433:5432` → `localhost:5433`), and rewriting the user's port bindings is a larger behavior change
+than the MVP should make. Revisit if anyone actually wants two copies of one repo up at once.
