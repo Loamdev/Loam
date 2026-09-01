@@ -30,7 +30,7 @@ foreign-key-correct data, and prints where to reach it; `playbrige down` leaves 
 - [x] **Phase 5** — FK-aware seeding via `COPY` — the core
 - [x] **Phase 6** — Wire it together: the `up` chain, `reset`, `status`, output polish
 
-Each phase is one branch and one PR, and ticks its own box on the way in.
+Each phase was one branch and one PR, merged only once its acceptance test passed.
 
 ---
 
@@ -79,12 +79,12 @@ Global flags, valid on every command:
 ### What `playbrige up` prints on success
 
 ```
-  ✔ Environment pb_1720001234 started (3 services)
+  ✔ Environment pb_1788263615_dbd4a91c started (2 services)
   ✔ Database ready
-  ✔ Schema read: 14 tables, 9 foreign keys
-  ✔ Seeded 10,000 rows across 14 tables in 0.8s
-  → App:  http://localhost:8080
-  → DB:   postgres://user:****@localhost:5433/appdb   (password masked)
+  ✔ Schema read: 9 tables, 8 foreign keys
+  ✔ Seeded 46,800 rows across 9 tables in 1.2s
+  → App:      http://localhost:8080
+  → DB:       postgres://appuser:****@localhost:5433/appdb   (password masked)
   Ready. Run 'playbrige down' when finished.
 ```
 
@@ -129,21 +129,26 @@ seed:
 
 ## Try it against the bundled fixture
 
-`testapp/` is the deliberately boring Compose + Postgres repo every phase's acceptance test runs
-against: a `db` service on host port `5433`, a placeholder `web` service on `8080` so App URL
-detection has a non-db port to find, and a schema (`categories`, `users`, `employees`, `products`,
-`promotions`, `orders`, `order_items`) that exercises multi-level FK chains, a self-referencing FK, a
-status column with a skewed distribution, timestamps, money, and name/email generation.
+`testapp/` is the deliberately boring Compose + Postgres repo the acceptance tests run against: a `db`
+service on host port `5433`, a placeholder `web` service on `8080` so App URL detection has a non-db
+port to find, and a nine-table schema (`categories`, `users`, `employees`, `products`, `promotions`,
+`orders`, `order_items`, `tenant_users`, `tenant_events`).
+
+It is built to force code paths open rather than to look realistic: a real enum type *and* a
+CHECK-constraint status column, a self-referencing FK, a nullable FK, a `uuid` PK, a `smallint` FK,
+`jsonb`, `numeric` money, a `date` and a naive `timestamp`, a three-level FK chain, and a composite
+PK/FK pair. See [`testapp/README.md`](testapp/README.md).
 
 ```sh
 make build
 cd testapp
 ../bin/playbrige up
 psql "postgres://appuser:apppass@localhost:5433/appdb" -c 'table orders limit 5;'
+../bin/playbrige status
 ../bin/playbrige down
 ```
 
-Until Phase 6 lands the commands run but the chain is not wired end to end — see Status above.
+On a warm machine that whole cycle takes about 15 seconds and seeds roughly 47,000 rows.
 
 ## What this is NOT
 
