@@ -1,8 +1,11 @@
 package cli
 
 import (
-	"strings"
+	"context"
+	"errors"
+	"os"
 
+	"github.com/shivansh-source/stateful-playwright/internal/env"
 	"github.com/spf13/cobra"
 )
 
@@ -24,13 +27,8 @@ func newLogsCmd() *cobra.Command {
 or more compose services to narrow the output; with no arguments, every service
 is included.`,
 		Args: cobra.ArbitraryArgs,
-		RunE: func(_ *cobra.Command, args []string) error {
-			command := "logs"
-			if len(args) > 0 {
-				command += " " + strings.Join(args, " ")
-			}
-			todo(command, "phase 6")
-			return nil
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runLogs(cmd.Context(), args)
 		},
 	}
 
@@ -38,4 +36,24 @@ is included.`,
 	cmd.Flags().BoolVar(&logsOpts.follow, "follow", false, "keep streaming new log output")
 
 	return cmd
+}
+
+// runLogs is a thin passthrough to `docker compose logs` for the recorded
+// environment. Docker's output goes straight to the terminal, unbuffered.
+func runLogs(ctx context.Context, services []string) error {
+	state, err := env.LoadState(opts.dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return Failf("Reading the environment state", err,
+				"run 'playbrige up' first")
+		}
+		return Failf("Reading the environment state", err,
+			"delete "+env.StatePath(opts.dir)+" if it is corrupt")
+	}
+
+	if err := env.Logs(ctx, state.ComposeFile, state.Project, logsOpts.follow, services); err != nil {
+		return Failf("Streaming logs for "+state.Project, err,
+			"check the environment is still up with: playbrige status")
+	}
+	return nil
 }

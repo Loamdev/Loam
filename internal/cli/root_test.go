@@ -2,10 +2,13 @@ package cli
 
 import (
 	"bytes"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
 
+	"github.com/shivansh-source/stateful-playwright/internal/env"
 	"github.com/spf13/cobra"
 )
 
@@ -89,10 +92,18 @@ func TestGlobalPersistentFlagDefaults(t *testing.T) {
 	}
 }
 
-func TestGlobalFlagsBindToOptions(t *testing.T) {
-	if _, err := run(t, "up", "-f", "compose.dev.yml", "--dir", "svc", "--db-url", "postgres://x@localhost/y", "--rows", "250"); err != nil {
-		t.Fatalf("up with global flags: %v", err)
+// parseGlobals binds the root command's persistent flags without executing a
+// subcommand, so flag tests stay independent of what the commands now do.
+func parseGlobals(t *testing.T, args ...string) {
+	t.Helper()
+
+	if err := NewRootCmd().PersistentFlags().Parse(args); err != nil {
+		t.Fatalf("parse global flags %v: %v", args, err)
 	}
+}
+
+func TestGlobalFlagsBindToOptions(t *testing.T) {
+	parseGlobals(t, "-f", "compose.dev.yml", "--dir", "svc", "--db-url", "postgres://x@localhost/y", "--rows", "250")
 
 	if opts.file != "compose.dev.yml" {
 		t.Errorf("opts.file = %q, want %q", opts.file, "compose.dev.yml")
@@ -138,8 +149,12 @@ func TestLogsFollowHasNoShorthandAndTakesServices(t *testing.T) {
 	}
 
 	// Service names are positional and unrestricted.
-	if _, err := run(t, "logs", "--follow", "db", "web"); err != nil {
-		t.Errorf("logs with service arguments: %v", err)
+	if err := logs.ValidateArgs([]string{"db", "web"}); err != nil {
+		t.Errorf("logs should accept service name arguments: %v", err)
+	}
+
+	if err := logs.Flags().Parse([]string{"--follow"}); err != nil {
+		t.Fatalf("parse --follow: %v", err)
 	}
 	if !logsOpts.follow {
 		t.Error("--follow did not bind to logsOpts.follow")
@@ -159,12 +174,15 @@ func TestHelpSucceeds(t *testing.T) {
 	}
 }
 
+// TestSubcommandsStubOutSuccessfully covers the commands the later phases still
+// have to fill in. up, down, and logs are real as of phase 1 and are covered by
+// the tests below and by the end-to-end run against testapp/.
 func TestSubcommandsStubOutSuccessfully(t *testing.T) {
-	for _, name := range []string{"up", "down", "status", "reset", "seed", "logs"} {
+	for _, name := range []string{"status", "reset", "seed"} {
 		t.Run(name, func(t *testing.T) {
 			printed := capture(t, func() {
 				if _, err := run(t, name); err != nil {
-					t.Fatalf("%s returned %v, want nil so phase 0 exits 0", name, err)
+					t.Fatalf("%s returned %v, want nil until its phase lands", name, err)
 				}
 			})
 
@@ -175,6 +193,116 @@ func TestSubcommandsStubOutSuccessfully(t *testing.T) {
 				t.Errorf("%s printed %q, want the implementing phase named", name, printed)
 			}
 		})
+	}
+}
+
+func TestDownWithNoEnvironmentSucceeds(t *testing.T) {
+	// `down` has to be safe in a directory that was never up, and safe to run
+	// twice. It must not require Docker to say "there is nothing here".
+	dir := t.TempDir()
+
+	printed := capture(t, func() {
+		if _, err := run(t, "down", "--dir", dir); err != nil {
+			t.Fatalf("down with no environment returned %v, want nil", err)
+		}
+	})
+
+	if !strings.Contains(printed, "No environment is running") {
+		t.Errorf("down printed %q, want it to say no environment is running", printed)
+	}
+}
+
+func TestLogsWithNoEnvironmentExplainsItself(t *testing.T) {
+	_, err := run(t, "logs", "--dir", t.TempDir())
+	if err == nil {
+		t.Fatal("logs with no environment returned nil, want an error")
+	}
+	if !strings.Contains(err.Error(), "playbrige up") {
+		t.Errorf("error = %q, want it to point at 'playbrige up'", err)
+	}
+}
+
+func TestUpRejectsAMissingComposeFile(t *testing.T) {
+	// Cheap local checks come before any Docker call, so this must fail fast
+	// whether or not an engine is running.
+	_, err := run(t, "up", "--dir", t.TempDir(), "--file", "nope.yml")
+	if err == nil {
+		t.Fatal("up with no compose file returned nil, want an error")
+	}
+	if !strings.Contains(err.Error(), "nope.yml") {
+		t.Errorf("error = %q, want it to name the missing file", err)
+	}
+}
+
+func TestUpRefusesToStrandAnExistingEnvironment(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "docker-compose.yml"),
+		[]byte("services:\n  db:\n    image: postgres:16-alpine\n"), 0o600); err != nil {
+		t.Fatalf("write compose: %v", err)
+	}
+	if err := env.SaveState(dir, &env.State{Project: "pb_already_running"}); err != nil {
+		t.Fatalf("SaveState: %v", err)
+	}
+
+	_, err := run(t, "up", "--dir", dir)
+	if err == nil {
+		t.Fatal("up over an existing environment returned nil, want an error")
+	}
+	if !strings.Contains(err.Error(), "pb_already_running") {
+		t.Errorf("error = %q, want it to name the running environment", err)
+	}
+	if !strings.Contains(err.Error(), "playbrige down") {
+		t.Errorf("error = %q, want it to hint at 'playbrige down'", err)
+	}
+}
+
+func TestResolveComposeFile(t *testing.T) {
+	// t.TempDir is absolute on every OS, including Windows where a leading
+	// separator alone is not.
+	absolute := filepath.Join(t.TempDir(), "compose.yml")
+
+	tests := []struct {
+		name string
+		dir  string
+		file string
+		want string
+	}{
+		{"current directory", ".", "docker-compose.yml", "docker-compose.yml"},
+		{"empty directory", "", "docker-compose.yml", "docker-compose.yml"},
+		{"joined", "testapp", "docker-compose.yml", filepath.Join("testapp", "docker-compose.yml")},
+		{"absolute file wins", "testapp", absolute, absolute},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := resolveComposeFile(tc.dir, tc.file); got != tc.want {
+				t.Errorf("resolveComposeFile(%q, %q) = %q, want %q", tc.dir, tc.file, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCountServices(t *testing.T) {
+	for n, want := range map[int]string{0: "0 services", 1: "1 service", 3: "3 services"} {
+		if got := countServices(n); got != want {
+			t.Errorf("countServices(%d) = %q, want %q", n, got, want)
+		}
+	}
+}
+
+func TestDescribeLeftovers(t *testing.T) {
+	if got := describeLeftovers(nil, nil, nil); got != "" {
+		t.Errorf("a clean teardown described as %q, want empty", got)
+	}
+
+	got := describeLeftovers([]string{"pb_1-db-1"}, nil, []string{"pb_1_pgdata"})
+	for _, want := range []string{"container", "pb_1-db-1", "volume", "pb_1_pgdata"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("describeLeftovers() = %q, want it to mention %q", got, want)
+		}
+	}
+	if strings.Contains(got, "network") {
+		t.Errorf("describeLeftovers() = %q, should not mention networks when none are left", got)
 	}
 }
 
