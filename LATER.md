@@ -155,10 +155,16 @@ costs an extra round trip per table for a case that is rare in practice.
 ### Unique constraints are not modelled
 
 Generated values are not de-duplicated against a unique index. Columns that look like natural keys -
-anything matching `email`, `sku`, or `code` - get a per-row counter woven in, so they are unique by
-construction, and that covers the common cases. A `UNIQUE` constraint on some other column could
-still collide and fail the batch. The fix is to read unique constraints during introspection and
-guarantee uniqueness for exactly those columns; deferred until a real schema actually hits it.
+anything matching `email`, `sku`, or `code` - get a per-row counter woven in, and the counter is the
+last thing surrendered when the value has to be trimmed to fit the column, so those stay distinct
+wherever the column is wide enough to hold it. Two gaps remain. A `UNIQUE` constraint on some other
+random-valued column can still collide and fail the batch. And a column too narrow to hold the
+counter cannot be unique across a large seed at all - a `varchar(2)` has a few hundred possible
+values - which is arithmetic rather than something a generator can fix.
+
+The fix for the first is to read unique constraints during introspection and guarantee uniqueness for
+exactly those columns; deferred until a real schema actually hits it. The second can only be reported,
+not solved: the honest response is to warn that the column is too narrow for the requested row count.
 
 ### Running the app's own migrations
 
