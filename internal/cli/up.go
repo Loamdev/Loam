@@ -98,11 +98,14 @@ func runUp(ctx context.Context) error {
 	defer pool.Close()
 	Step("Database ready")
 
-	tables, err := db.TableNames(ctx, pool)
+	schema, err := db.Introspect(ctx, pool)
 	if err != nil {
 		return Failf("Reading the schema", err, "check the database is fully initialized")
 	}
-	Step("Schema read: %s", countTables(len(tables)))
+	if len(schema.Tables) == 0 {
+		Warn("the database has no tables in the public schema - there is nothing to seed")
+	}
+	Step("Schema read: %s, %s", countTables(len(schema.Tables)), countFKs(schema.FKCount()))
 
 	state := &env.State{
 		Project:     project,
@@ -163,4 +166,12 @@ func countTables(n int) string {
 		return "1 table"
 	}
 	return fmt.Sprintf("%d tables", n)
+}
+
+// countFKs renders a foreign key count with the right plural.
+func countFKs(n int) string {
+	if n == 1 {
+		return "1 foreign key"
+	}
+	return fmt.Sprintf("%d foreign keys", n)
 }

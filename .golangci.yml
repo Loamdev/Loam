@@ -53,6 +53,11 @@ linters:
 
     misspell:
       locale: US
+      # 'cancelled' is a value in the testapp fixture's own schema (the orders
+      # status CHECK and the user_status enum), not prose. Renaming a column
+      # value to satisfy a spell checker would be the tail wagging the dog.
+      ignore-rules:
+        - cancelled
 
     revive:
       severity: warning

@@ -204,3 +204,58 @@ jobs:
           echo "  GOOS=windows GOARCH=amd64 go build ./..."
           echo "  GOOS=darwin  GOARCH=arm64 go build ./..."
           echo "Keep the code OS-portable: use filepath.Join, no unix-only syscalls."
+
+  integration:
+    name: integration (live Postgres)
+    runs-on: ubuntu-latest
+
+    # The same image and credentials as testapp/docker-compose.yml, so the
+    # schema under test is exactly the fixture the acceptance tests describe.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: appuser
+          POSTGRES_PASSWORD: apppass
+          POSTGRES_DB: appdb
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U appuser -d appdb"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      # A service container cannot run /docker-entrypoint-initdb.d, so the
+      # fixture schema is applied by hand once Postgres is healthy.
+      - name: Load the fixture schema
+        run: |
+          psql "$PLAYBRIGE_TEST_DB" -v ON_ERROR_STOP=1 -f testapp/initdb/001_schema.sql
+          echo "Tables created:"
+          psql "$PLAYBRIGE_TEST_DB" -Atc "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY 1"
+        env:
+          PLAYBRIGE_TEST_DB: postgres://appuser:apppass@localhost:5433/appdb
+
+      - name: Integration tests against the live schema
+        run: go test ./... -run 'Fixture|Integration' -v
+        env:
+          PLAYBRIGE_TEST_DB: postgres://appuser:apppass@localhost:5433/appdb
+
+      - name: How to reproduce
+        if: failure()
+        run: |
+          echo "::error title=integration::Introspection no longer matches the testapp fixture."
+          echo "Reproduce locally:"
+          echo "  playbrige up --dir testapp"
+          echo "  PLAYBRIGE_TEST_DB=postgres://appuser:apppass@localhost:5433/appdb go test ./... -run Fixture -v"
+          echo "  playbrige down --dir testapp"
