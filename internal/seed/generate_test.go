@@ -2,6 +2,7 @@ package seed
 
 import (
 	"encoding/json"
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -481,6 +482,72 @@ func TestIsStatusName(t *testing.T) {
 	for _, name := range []string{"email", "created_at", "statuses", "typename", "total"} {
 		if isStatusName(name) {
 			t.Errorf("isStatusName(%q) = true", name)
+		}
+	}
+}
+
+func TestUniqueValuesSurviveNarrowColumns(t *testing.T) {
+	// Regression: these values carry a per-row counter, but they used to go
+	// through fitString, which trims from the right and so discarded the counter
+	// first. An email in a varchar(12) collided by row 14 and a varchar(4) sku by
+	// row 160 - and a duplicate in a UNIQUE column fails the entire COPY, not one
+	// row.
+	const rows = 5000
+
+	tests := []struct {
+		column    string
+		maxLength int
+	}{
+		{"email", 255}, {"email", 32}, {"email", 12},
+		{"sku", 40}, {"sku", 8}, {"sku", 5},
+		{"promo_code", 6},
+	}
+
+	for _, tc := range tests {
+		t.Run(fmt.Sprintf("%s/varchar(%d)", tc.column, tc.maxLength), func(t *testing.T) {
+			g := NewGenerator(Options{Seed: 7})
+			c := db.Column{Name: tc.column, DataType: db.TypeVarchar, MaxLength: tc.maxLength}
+
+			seen := make(map[string]int, rows)
+			for i := 1; i <= rows; i++ {
+				v, ok := g.Value("t", c).(string)
+				if !ok {
+					t.Fatalf("row %d produced a non-string", i)
+				}
+				if len(v) > tc.maxLength {
+					t.Fatalf("row %d produced %q, longer than varchar(%d)", i, v, tc.maxLength)
+				}
+				if first, dup := seen[v]; dup {
+					t.Fatalf("duplicate %q at row %d (first seen at row %d): the counter was truncated away",
+						v, i, first)
+				}
+				seen[v] = i
+			}
+		})
+	}
+}
+
+func TestFitUniqueGivesUpTheCounterLast(t *testing.T) {
+	g := NewGenerator(Options{Seed: 1})
+	col := func(width int) db.Column { return db.Column{DataType: db.TypeVarchar, MaxLength: width} }
+
+	tests := []struct {
+		name   string
+		got    string
+		want   string
+		reason string
+	}{
+		{"room for everything", g.fitUnique("ABC-", 42, 5, "", col(40)), "ABC-00042", "padded when it fits"},
+		{"unbounded column", g.fitUnique("ABC-", 42, 5, "", col(0)), "ABC-00042", "no limit means no trimming"},
+		{"padding dropped", g.fitUnique("ABC-", 42, 5, "", col(6)), "ABC-42", "padding goes before the counter"},
+		{"suffix dropped", g.fitUnique("priya.sharma", 42, 0, "@example.com", col(14)), "priya.sharma42", "the domain goes before the counter"},
+		{"prefix trimmed", g.fitUnique("priya.sharma", 42, 0, "@example.com", col(6)), "priy42", "the prefix is trimmed to exactly fill the width"},
+		{"counter only", g.fitUnique("ABCDEF-", 12345, 5, "", col(3)), "345", "too narrow for anything but the counter's low digits"},
+	}
+
+	for _, tc := range tests {
+		if tc.got != tc.want {
+			t.Errorf("%s: got %q, want %q (%s)", tc.name, tc.got, tc.want, tc.reason)
 		}
 	}
 }

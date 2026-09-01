@@ -365,11 +365,18 @@ Composite primary keys are generated unique but with correlated values (consecut
 row). They satisfy the constraint; making the leading column realistically low-cardinality is
 deferred (`LATER.md`).
 
-### 13.4 Unique constraints — unique by construction where it matters
+### 13.4 Unique constraints — best effort, bounded by the column's own width
 
-Columns whose names imply a natural key (`email`, `sku`, `code`) get a per-row counter woven in,
-so they cannot collide. Unique constraints are **not** otherwise introspected, so a `UNIQUE` index
-on some other random-valued column can still fail the batch. Deferred (`LATER.md`).
+Columns whose names imply a natural key (`email`, `sku`, `code`) get a per-row counter woven in.
+The counter is the last thing given up when a value has to be trimmed to fit: a narrow column loses
+its padding, then its domain or prefix, and only then digits off the counter. So these stay distinct
+as long as the column is wide enough to hold the counter at all.
+
+Where it genuinely cannot hold: a `varchar(2)` has a few hundred possible values, so a 10,000-row
+seed cannot be unique in it no matter how the value is built. That is arithmetic, not a bug.
+
+Unique constraints are **not** introspected, so a `UNIQUE` index on some other random-valued column
+can still fail the batch. Deferred (`LATER.md`).
 
 ### 13.5 NOT NULL columns are never nulled
 

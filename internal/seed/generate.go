@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -181,10 +182,12 @@ func (g *Generator) byName(table string, c db.Column) (any, bool) {
 		switch {
 		case strings.Contains(name, "email"):
 			// A per-row counter keeps these unique, which matters because a
-			// real users table usually has a unique index on email.
+			// real users table usually has a unique index on email. fitUnique,
+			// not fitString: a narrow column must give up the domain rather
+			// than the counter.
 			g.seqs[table+".email"]++
 			local := strings.ToLower(g.pick(indianFirstNames) + "." + g.pick(indianLastNames))
-			return g.fitString(fmt.Sprintf("%s%d@example.com", local, g.seqs[table+".email"]), c), true
+			return g.fitUnique(local, g.seqs[table+".email"], 0, "@example.com", c), true
 		case strings.Contains(name, "first_name"), strings.Contains(name, "firstname"), name == "fname":
 			return g.fitString(g.pick(indianFirstNames), c), true
 		case strings.Contains(name, "last_name"), strings.Contains(name, "lastname"), name == "lname", strings.Contains(name, "surname"):
@@ -205,8 +208,10 @@ func (g *Generator) byName(table string, c db.Column) (any, bool) {
 		case strings.Contains(name, "slug"):
 			return g.fitString(strings.ToLower(g.fake.Word()+"-"+g.fake.LetterN(5)), c), true
 		case strings.Contains(name, "sku"), strings.Contains(name, "code"):
+			// Zero-padded when the column has room, bare counter when it does
+			// not: these often carry a unique index.
 			g.seqs[table+"."+name]++
-			return g.fitString(fmt.Sprintf("%s-%05d", strings.ToUpper(g.fake.LetterN(3)), g.seqs[table+"."+name]), c), true
+			return g.fitUnique(strings.ToUpper(g.fake.LetterN(3))+"-", g.seqs[table+"."+name], 5, "", c), true
 		case strings.Contains(name, "full_name"), strings.Contains(name, "fullname"), strings.Contains(name, "name"):
 			return g.fitString(g.pick(indianFirstNames)+" "+g.pick(indianLastNames), c), true
 		}
@@ -343,11 +348,54 @@ func (g *Generator) pick(values []string) string {
 
 // fitString truncates a value to the column's declared length. Postgres rejects
 // an over-long value outright, which would fail the whole batch.
+//
+// Do NOT use this for a value whose uniqueness matters: it trims from the right,
+// so a per-row counter on the end is the first thing it discards. Use fitUnique.
 func (g *Generator) fitString(s string, c db.Column) string {
 	if c.MaxLength > 0 && len(s) > c.MaxLength {
 		return s[:c.MaxLength]
 	}
 	return s
+}
+
+// fitUnique renders prefix + counter + suffix into the column's width, giving up
+// everything else before it truncates the counter.
+//
+// The counter is the only thing making these values distinct, and a duplicate in
+// a UNIQUE column fails the entire COPY rather than one row - so it is the last
+// thing to go. Plain fitString would chop it off first: an email in a
+// varchar(12) collided by row 14, and a varchar(4) sku by row 160.
+//
+// padTo zero-pads the counter when there is room for it, purely so the common
+// case looks like a real SKU rather than a bare integer.
+//
+// A column too narrow to hold even the counter cannot be unique across a large
+// seed - varchar(2) has a few hundred possible values and no scheme fixes that.
+// The value is kept as wide as possible and the caller lives with arithmetic.
+func (g *Generator) fitUnique(prefix string, n int64, padTo int, suffix string, c db.Column) string {
+	counter := strconv.FormatInt(n, 10)
+
+	// Widest form first: padded counter, full suffix.
+	if padTo > 0 {
+		padded := fmt.Sprintf("%0*d", padTo, n)
+		if v := prefix + padded + suffix; c.MaxLength <= 0 || len(v) <= c.MaxLength {
+			return v
+		}
+	} else if v := prefix + counter + suffix; c.MaxLength <= 0 || len(v) <= c.MaxLength {
+		return v
+	}
+
+	// Then drop the padding, then the suffix, then trim the prefix.
+	if v := prefix + counter + suffix; len(v) <= c.MaxLength {
+		return v
+	}
+	if v := prefix + counter; len(v) <= c.MaxLength {
+		return v
+	}
+	if len(counter) < c.MaxLength {
+		return prefix[:c.MaxLength-len(counter)] + counter
+	}
+	return counter[len(counter)-c.MaxLength:]
 }
 
 // temporal returns a plausible recent moment in the column's own type.
