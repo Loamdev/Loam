@@ -24,7 +24,7 @@ the real behavior lands in the phases below, so expect `up` to print placeholder
 
 - [x] **Phase 0** — Skeleton CLI: cobra root, six subcommands, package skeletons, CI, fixture app
 - [x] **Phase 1** — Compose up/down with isolation (unique project name, `.playbrige/state.json`)
-- [ ] **Phase 2** — Connect to Postgres (auto-detect from compose, readiness retry loop)
+- [x] **Phase 2** — Connect to Postgres (auto-detect from compose, readiness retry loop)
 - [ ] **Phase 3** — Schema introspection (tables, columns, types, PKs, FKs)
 - [ ] **Phase 4** — Topological ordering (parents before children, cycle breaking)
 - [ ] **Phase 5** — FK-aware seeding via `COPY` — the core
