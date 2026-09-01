@@ -241,6 +241,12 @@ optional.
 Values are then fitted to the column: strings truncated to `MaxLength`, numerics clamped to
 `NumericPrecision`/`Scale`, integers to their width (`smallint` → `int16`).
 
+There are **two** fitting helpers and picking the wrong one is a real bug. `fitString` trims from the
+right, which is fine for prose but destroys a value whose uniqueness depends on a trailing counter —
+an email in a `varchar(12)` collided by row 14 that way. `fitUnique` gives up the padding, then the
+domain or suffix, then the prefix, and trims the counter last. Anything carrying a per-row counter
+must go through `fitUnique`.
+
 `Supported()` is the honesty valve: `bytea`, `inet`, `interval`, and arrays are **not** generated. A
 nullable or defaulted column of such a type is skipped with a warning; a NOT NULL one with no default
 is reported. Writing a guess would be worse than saying so.
@@ -356,8 +362,12 @@ Do not "fix" these without reading the reasoning first — all of it is in
 
 - Playbrige does **not** run your migrations. It seeds whatever is already in `public`. An empty
   schema is normal and non-fatal; the workflow is `up` → run migrations → `seed`.
-- Unique constraints are not introspected. `email`/`sku`/`code` get a per-row counter and cannot
-  collide; anything else could.
+- Unique constraints are not introspected. `email`/`sku`/`code` get a per-row counter, and
+  `fitUnique` surrenders the padding, the domain, then the prefix before it ever trims the counter —
+  so those stay distinct wherever the column is wide enough to hold it. Two caveats: a `UNIQUE`
+  index on any other random-valued column can still collide, and a column too narrow to hold the
+  counter cannot be unique across a large seed at all (`varchar(2)` has a few hundred possible
+  values). The second is arithmetic, not a bug.
 - `GENERATED ALWAYS AS IDENTITY` keys are skipped with a warning.
 - Composite primary keys get correlated values (`tenant_id=1237, user_ref=1238`) — valid and unique,
   but unrealistic. Realism polish, not correctness.
