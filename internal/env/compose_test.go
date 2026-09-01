@@ -227,13 +227,23 @@ func TestServiceNamesIsSorted(t *testing.T) {
 	}
 }
 
-var projectNamePattern = regexp.MustCompile(`^pb_\d+_[0-9a-f]{4}$`)
+var projectNamePattern = regexp.MustCompile(`^pb_\d+_[0-9a-f]{8}$`)
+
+// projectNameDraws is how many same-second names this test demands be distinct.
+//
+// This is a birthday-bound problem, so the number is not arbitrary. With the
+// suffix at 4 bytes (2^32 values), 200 draws collide with probability about
+// 200^2 / (2 * 2^32), roughly 1 in 200,000 - rare enough that a failure here
+// means the entropy shrank, not that the test got unlucky. Raising this count
+// or shrinking projectRandomBytes makes the test flaky; do neither without
+// redoing the arithmetic.
+const projectNameDraws = 200
 
 func TestNewProjectNameIsUniqueAndWellFormed(t *testing.T) {
 	now := time.Unix(1720001234, 0)
 
 	seen := map[string]bool{}
-	for i := 0; i < 200; i++ {
+	for i := 0; i < projectNameDraws; i++ {
 		// Same clock every time: only the random suffix can keep these apart,
 		// which is exactly the isolation guarantee two quick `up` runs need.
 		name := NewProjectName(now)
