@@ -1,0 +1,38 @@
+# ---- Go build output ----
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+bin/
+dist/
+# The CLI binary if built into the repo root.
+playbrige
+playbrige.exe
+
+# ---- Coverage / profiling ----
+coverage.out
+coverage.html
+*.prof
+
+# ---- Playbrige runtime state (per-machine, never committed) ----
+.playbrige/
+
+# ---- Local environment ----
+.env
+.env.*
+!.env.example
+
+# ---- Editors / IDEs ----
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# ---- OS junk ----
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# go.sum is intentionally NOT ignored - it is committed and CI verifies it is tidy.
