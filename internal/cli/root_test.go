@@ -174,25 +174,103 @@ func TestHelpSucceeds(t *testing.T) {
 	}
 }
 
-// TestSubcommandsStubOutSuccessfully covers the commands the later phases still
-// have to fill in. up, down, and logs are real as of phase 1 and are covered by
-// the tests below and by the end-to-end run against testapp/.
-func TestSubcommandsStubOutSuccessfully(t *testing.T) {
-	for _, name := range []string{"status", "reset", "seed"} {
-		t.Run(name, func(t *testing.T) {
-			printed := capture(t, func() {
-				if _, err := run(t, name); err != nil {
-					t.Fatalf("%s returned %v, want nil until its phase lands", name, err)
-				}
-			})
+// TestStatusWithNoEnvironmentSucceeds: nothing running is an answer, not a
+// failure, and saying so must not require Docker.
+func TestStatusWithNoEnvironmentSucceeds(t *testing.T) {
+	printed := capture(t, func() {
+		if _, err := run(t, "status", "--dir", t.TempDir()); err != nil {
+			t.Fatalf("status with no environment returned %v, want nil", err)
+		}
+	})
 
-			if !strings.Contains(printed, name) || !strings.Contains(printed, "not implemented yet") {
-				t.Errorf("%s printed %q, want a TODO line naming the command and its phase", name, printed)
+	if !strings.Contains(printed, "No environment is running") {
+		t.Errorf("status printed %q, want it to say nothing is running", printed)
+	}
+	if !strings.Contains(printed, "playbrige up") {
+		t.Errorf("status printed %q, want it to suggest 'playbrige up'", printed)
+	}
+}
+
+// TestDataCommandsNeedAnEnvironment: seed and reset act on a running
+// environment. Without one they must say so and name the fix.
+func TestDataCommandsNeedAnEnvironment(t *testing.T) {
+	for _, name := range []string{"seed", "reset"} {
+		t.Run(name, func(t *testing.T) {
+			_, err := run(t, name, "--dir", t.TempDir())
+			if err == nil {
+				t.Fatalf("%s with no environment returned nil, want an error", name)
 			}
-			if !strings.Contains(printed, "phase") {
-				t.Errorf("%s printed %q, want the implementing phase named", name, printed)
+			if !strings.Contains(err.Error(), "playbrige up") {
+				t.Errorf("%s error = %q, want it to point at 'playbrige up'", name, err)
 			}
 		})
+	}
+}
+
+func TestPrintEndpointsAlwaysMasksThePassword(t *testing.T) {
+	// Every command that shows a connection string goes through this, so the
+	// password must not survive any of them (build spec section 12.2).
+	const password = "sup3rs3cr3t"
+	state := &env.State{
+		Project: "pb_1",
+		AppURL:  "http://localhost:8080",
+		DBURL:   "postgres://appuser:" + password + "@localhost:5433/appdb",
+	}
+
+	printed := capture(t, func() { printEndpoints(state) })
+
+	if strings.Contains(printed, password) {
+		t.Fatalf("printEndpoints leaked the password: %q", printed)
+	}
+	for _, want := range []string{"http://localhost:8080", "postgres://appuser:****@localhost:5433/appdb", "password masked"} {
+		if !strings.Contains(printed, want) {
+			t.Errorf("printEndpoints output %q, want it to contain %q", printed, want)
+		}
+	}
+}
+
+func TestPrintEndpointsOmitsWhatItDoesNotKnow(t *testing.T) {
+	// No app port published and no URL recorded: print nothing rather than a
+	// guess that does not work.
+	printed := capture(t, func() { printEndpoints(&env.State{Project: "pb_1"}) })
+	if strings.Contains(printed, "App:") || strings.Contains(printed, "DB:") {
+		t.Errorf("printEndpoints printed %q for an empty state, want nothing", printed)
+	}
+}
+
+func TestTopTablesIsOrderedAndBounded(t *testing.T) {
+	counts := map[string]int64{
+		"order_items": 10000, "promotions": 10000, "orders": 2000,
+		"products": 2000, "users": 400, "categories": 400, "employees": 9000,
+	}
+
+	got := topTables(counts, 3)
+	if len(got) != 3 {
+		t.Fatalf("topTables returned %d lines, want 3", len(got))
+	}
+	// Largest first, ties broken by name so the output never changes shape.
+	if !strings.HasPrefix(got[0], "order_items") {
+		t.Errorf("first line = %q, want order_items (tied at 10000, alphabetically first)", got[0])
+	}
+	if !strings.HasPrefix(got[1], "promotions") {
+		t.Errorf("second line = %q, want promotions", got[1])
+	}
+	if !strings.HasPrefix(got[2], "employees") {
+		t.Errorf("third line = %q, want employees at 9000", got[2])
+	}
+	if !strings.Contains(got[0], "10,000") {
+		t.Errorf("counts should be readable with separators, got %q", got[0])
+	}
+}
+
+func TestWithThousands(t *testing.T) {
+	for in, want := range map[int]string{
+		0: "0", 7: "7", 999: "999", 1000: "1,000",
+		10000: "10,000", 34800: "34,800", 1234567: "1,234,567",
+	} {
+		if got := withThousands(in); got != want {
+			t.Errorf("withThousands(%d) = %q, want %q", in, got, want)
+		}
 	}
 }
 

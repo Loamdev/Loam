@@ -139,6 +139,7 @@ func runUp(ctx context.Context) error {
 			"check that "+opts.dir+" is writable")
 	}
 
+	printEndpoints(state)
 	Ready()
 	return nil
 }

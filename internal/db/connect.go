@@ -6,8 +6,10 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -96,4 +98,72 @@ func TableNames(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
 
 	sort.Strings(names)
 	return names, nil
+}
+
+// RowCounts returns the number of rows in each named table.
+//
+// Counts are gathered in one statement rather than a query per table, so
+// `status` stays instant on a wide schema.
+func RowCounts(ctx context.Context, pool *pgxpool.Pool, tables []string) (map[string]int64, error) {
+	counts := make(map[string]int64, len(tables))
+	if len(tables) == 0 {
+		return counts, nil
+	}
+
+	var b strings.Builder
+	for i, table := range tables {
+		if i > 0 {
+			b.WriteString(" UNION ALL ")
+		}
+		// The table name is an identifier, so it is sanitized and interpolated;
+		// it is also echoed back as a literal to key the result.
+		fmt.Fprintf(&b, "SELECT %s AS name, count(*) AS n FROM %s",
+			quoteLiteral(table), pgx.Identifier{table}.Sanitize())
+	}
+
+	rows, err := pool.Query(ctx, b.String())
+	if err != nil {
+		return nil, fmt.Errorf("count rows: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var name string
+		var n int64
+		if err := rows.Scan(&name, &n); err != nil {
+			return nil, fmt.Errorf("scan row count: %w", err)
+		}
+		counts[name] = n
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("count rows: %w", err)
+	}
+	return counts, nil
+}
+
+// Truncate empties the given tables in a single statement.
+//
+// CASCADE lets one statement clear the whole graph regardless of foreign key
+// order, and RESTART IDENTITY rewinds the sequences so a re-seed starts from 1
+// and the application's inserts still line up afterwards.
+func Truncate(ctx context.Context, pool *pgxpool.Pool, tables []string) error {
+	if len(tables) == 0 {
+		return nil
+	}
+
+	quoted := make([]string, len(tables))
+	for i, table := range tables {
+		quoted[i] = pgx.Identifier{table}.Sanitize()
+	}
+
+	stmt := "TRUNCATE " + strings.Join(quoted, ", ") + " RESTART IDENTITY CASCADE"
+	if _, err := pool.Exec(ctx, stmt); err != nil {
+		return fmt.Errorf("truncate tables: %w", err)
+	}
+	return nil
+}
+
+// quoteLiteral renders a string as a SQL literal, doubling any embedded quote.
+func quoteLiteral(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "''") + "'"
 }
