@@ -80,9 +80,3 @@ func Execute() error {
 	}
 	return nil
 }
-
-// todo prints the Phase 0 placeholder for a command that is not wired yet,
-// naming the phase that will implement it.
-func todo(command, phase string) {
-	fmt.Fprintf(out, "  %s: not implemented yet (%s)\n", command, phase)
-}

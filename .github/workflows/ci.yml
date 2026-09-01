@@ -259,3 +259,64 @@ jobs:
           echo "  playbrige up --dir testapp"
           echo "  PLAYBRIGE_TEST_DB=postgres://appuser:apppass@localhost:5433/appdb go test ./... -run Fixture -v"
           echo "  playbrige down --dir testapp"
+
+  e2e:
+    name: end-to-end (real Docker)
+    runs-on: ubuntu-latest
+    # The whole cycle involves image pulls on a cold runner.
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+
+      - name: Show Docker version
+        run: |
+          docker version
+          docker compose version
+
+      # Pulling up front keeps the timing assertions about Playbrige rather than
+      # about the runner's network.
+      - name: Pre-pull the fixture images
+        run: |
+          docker pull postgres:16-alpine
+          docker pull nginx:alpine
+
+      - name: Build the CLI
+        run: go build -o bin/playbrige .
+
+      # This is the build spec's section 11 definition of done: one command to a
+      # seeded app, one command back to nothing left behind.
+      - name: End-to-end acceptance test
+        run: go test -tags=e2e -v -timeout 15m .
+
+      - name: Prove nothing was left behind
+        if: always()
+        run: |
+          echo "--- containers ---"
+          docker ps -a --filter "name=pb_" --format '{{.Names}}'
+          echo "--- networks ---"
+          docker network ls --filter "name=pb_" --format '{{.Name}}'
+          echo "--- volumes ---"
+          docker volume ls --filter "name=pb_" --format '{{.Name}}'
+          leftovers=$(docker ps -aq --filter "name=pb_"; docker volume ls -q --filter "name=pb_")
+          if [ -n "$leftovers" ]; then
+            echo "::error title=teardown::playbrige down left resources behind."
+            exit 1
+          fi
+          echo "Clean: no leftover containers, networks, or volumes."
+
+      - name: How to reproduce
+        if: failure()
+        run: |
+          echo "::error title=e2e::The end-to-end acceptance test failed."
+          echo "Reproduce locally (needs Docker running):"
+          echo "  go test -tags=e2e -v -timeout 15m ."
+          echo "Or drive it by hand:"
+          echo "  playbrige up --dir testapp && playbrige status && playbrige down --dir testapp"

@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/shivansh-source/stateful-playwright/internal/config"
 	"github.com/shivansh-source/stateful-playwright/internal/db"
+	"github.com/shivansh-source/stateful-playwright/internal/env"
 	"github.com/shivansh-source/stateful-playwright/internal/seed"
 	"github.com/spf13/cobra"
 )
@@ -28,9 +29,8 @@ func newSeedCmd() *cobra.Command {
 		Long: `Generate synthetic, foreign-key-correct rows into the database of an
 environment that is already up. Rows are appended unless --truncate is given.`,
 		Args: cobra.NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			todo("seed", "phase 6")
-			return nil
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runSeed(cmd.Context())
 		},
 	}
 
@@ -127,4 +127,50 @@ func formatDuration(d time.Duration) string {
 		return fmt.Sprintf("%.2fs", d.Seconds())
 	}
 	return fmt.Sprintf("%.1fs", d.Seconds())
+}
+
+// seedTimeout bounds a seeding run. Generation is fast; the ceiling exists so a
+// wedged connection cannot hang the CLI forever.
+const seedTimeout = 10 * time.Minute
+
+// runSeed seeds the database of an environment that is already up.
+func runSeed(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, seedTimeout)
+	defer cancel()
+
+	live, err := openEnvironment(ctx, true)
+	if err != nil {
+		return err
+	}
+	defer live.Close()
+
+	if len(live.Schema.Tables) == 0 {
+		Warn("the database has no tables in the public schema - there is nothing to seed")
+		return nil
+	}
+
+	if seedOpts.truncate {
+		if err := db.Truncate(ctx, live.Pool, live.Schema.Order); err != nil {
+			return Failf("Emptying the tables", err,
+				"another connection may hold a lock; close it and retry")
+		}
+		Step("Emptied %s", countTables(len(live.Schema.Order)))
+	}
+
+	result, err := seedEnvironment(ctx, live.Pool, live.Schema, live.Config)
+	if err != nil {
+		return err
+	}
+
+	// Keep the recorded row count honest: appending adds to it, truncating
+	// replaces it.
+	if seedOpts.truncate {
+		live.State.Rows = result.TotalRows
+	} else {
+		live.State.Rows += result.TotalRows
+	}
+	if err := env.SaveState(opts.dir, live.State); err != nil {
+		Warn("could not record the new row count: %v", err)
+	}
+	return nil
 }

@@ -17,10 +17,10 @@ Nothing leaves your machine. There is no server, no cloud, no account, no daemon
 
 ## Status
 
-**MVP under construction.** This repo is being built phase by phase against
+**MVP complete.** All seven phases are in, each verified against its own acceptance test in
 [`docs/PLAYBRIGE_MVP_BUILD_SPEC.md`](docs/PLAYBRIGE_MVP_BUILD_SPEC.md), which is the source of truth
-for behavior. Today the command tree exists and the output printers are real;
-the real behavior lands in the phases below, so expect `up` to print placeholders until Phase 6.
+for behavior. `playbrige up` on a Compose + Postgres repo brings the stack up, seeds it with
+foreign-key-correct data, and prints where to reach it; `playbrige down` leaves nothing behind.
 
 - [x] **Phase 0** — Skeleton CLI: cobra root, six subcommands, package skeletons, CI, fixture app
 - [x] **Phase 1** — Compose up/down with isolation (unique project name, `.playbrige/state.json`)
@@ -28,7 +28,7 @@ the real behavior lands in the phases below, so expect `up` to print placeholder
 - [x] **Phase 3** — Schema introspection (tables, columns, types, PKs, FKs)
 - [x] **Phase 4** — Topological ordering (parents before children, cycle breaking)
 - [x] **Phase 5** — FK-aware seeding via `COPY` — the core
-- [ ] **Phase 6** — Wire it together: the `up` chain, `reset`, `status`, output polish
+- [x] **Phase 6** — Wire it together: the `up` chain, `reset`, `status`, output polish
 
 Each phase is one branch and one PR, and ticks its own box on the way in.
 
