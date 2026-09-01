@@ -107,6 +107,21 @@ func runUp(ctx context.Context) error {
 	}
 	Step("Schema read: %s, %s", countTables(len(schema.Tables)), countFKs(schema.FKCount()))
 
+	// Order the tables so a parent is always seeded before its children.
+	orderWarnings, err := db.TopoSort(schema)
+	if err != nil {
+		return Failf("Ordering the tables", err,
+			"the schema has foreign keys that cannot be satisfied in any order")
+	}
+	for _, w := range orderWarnings {
+		Warn("%s", w)
+	}
+
+	result, err := seedEnvironment(ctx, pool, schema, cfg)
+	if err != nil {
+		return err
+	}
+
 	state := &env.State{
 		Project:     project,
 		ComposeFile: composeFile,
@@ -114,6 +129,7 @@ func runUp(ctx context.Context) error {
 		DBURL:       dbURL,
 		AppURL:      resolveAppURL(cfg, compose),
 		Services:    services,
+		Rows:        result.TotalRows,
 	}
 	if err := env.SaveState(opts.dir, state); err != nil {
 		// The stack is up but unrecorded, which would strand it. Tear it back

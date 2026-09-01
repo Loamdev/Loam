@@ -226,3 +226,37 @@ func assertValues(t *testing.T, allowed map[string][]string, key string, want []
 		t.Errorf("%s allowed values = %v, want %v", key, sorted, want)
 	}
 }
+
+func TestTopoSortFixtureOrdersParentsFirst(t *testing.T) {
+	schema, done := liveSchema(t)
+	defer done()
+
+	warnings, err := TopoSort(schema)
+	if err != nil {
+		t.Fatalf("TopoSort: %v", err)
+	}
+	if len(warnings) != 0 {
+		t.Errorf("warnings = %v, want none: the fixture schema is acyclic", warnings)
+	}
+
+	position := make(map[string]int, len(schema.Order))
+	for i, name := range schema.Order {
+		position[name] = i
+	}
+	if len(schema.Order) != len(schema.Tables) {
+		t.Fatalf("order has %d entries for %d tables: %v", len(schema.Order), len(schema.Tables), schema.Order)
+	}
+
+	// The build spec's phase 4 acceptance condition, on the real schema.
+	for _, name := range schema.SortedTableNames() {
+		for _, fk := range schema.Tables[name].FKs {
+			if fk.ParentTable == name {
+				continue // the employees self-reference
+			}
+			if position[fk.ParentTable] >= position[name] {
+				t.Errorf("%s references %s but comes before it\norder: %v", name, fk.ParentTable, schema.Order)
+			}
+		}
+	}
+	t.Logf("fixture order: %v", schema.Order)
+}
