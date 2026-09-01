@@ -44,8 +44,17 @@ type Column struct {
 	HasDefault bool
 	// IsIdentity reports whether the column is GENERATED ... AS IDENTITY.
 	IsIdentity bool
+	// IdentityGeneration is "ALWAYS" or "BY DEFAULT" for an identity column,
+	// and empty otherwise. GENERATED ALWAYS rejects an explicitly supplied
+	// value, so the seeder has to treat it differently.
+	IdentityGeneration string
 	// MaxLength is the declared character limit, or 0 when unbounded.
 	MaxLength int
+	// NumericPrecision is the total digits allowed by a numeric/decimal column,
+	// or 0 when unconstrained. numeric(10,2) gives 10.
+	NumericPrecision int
+	// NumericScale is the digits after the decimal point. numeric(10,2) gives 2.
+	NumericScale int
 }
 
 // IsInteger reports whether the column holds an integer type.

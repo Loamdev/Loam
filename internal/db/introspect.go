@@ -38,8 +38,11 @@ SELECT c.table_name,
        c.udt_name,
        c.is_nullable = 'YES'            AS nullable,
        COALESCE(c.character_maximum_length, 0) AS max_length,
+       COALESCE(c.numeric_precision, 0)        AS numeric_precision,
+       COALESCE(c.numeric_scale, 0)            AS numeric_scale,
        c.column_default IS NOT NULL     AS has_default,
        c.is_identity = 'YES'            AS is_identity,
+       COALESCE(c.identity_generation, '') AS identity_generation,
        COALESCE(t.typtype, ' ')         AS typtype
 FROM information_schema.columns c
 JOIN pg_catalog.pg_tables pt
@@ -60,12 +63,14 @@ func readColumns(ctx context.Context, pool *pgxpool.Pool, s *Schema) error {
 
 	for rows.Next() {
 		var (
-			table, name, dataType, udtName, typtype string
-			nullable, hasDefault, isIdentity        bool
-			maxLength                               int
+			table, name, dataType, udtName, typtype   string
+			identityGeneration                        string
+			nullable, hasDefault, isIdentity          bool
+			maxLength, numericPrecision, numericScale int
 		)
 		if err := rows.Scan(&table, &name, &dataType, &udtName, &nullable,
-			&maxLength, &hasDefault, &isIdentity, &typtype); err != nil {
+			&maxLength, &numericPrecision, &numericScale,
+			&hasDefault, &isIdentity, &identityGeneration, &typtype); err != nil {
 			return fmt.Errorf("scan column: %w", err)
 		}
 
@@ -75,13 +80,16 @@ func readColumns(ctx context.Context, pool *pgxpool.Pool, s *Schema) error {
 			s.Tables[table] = t
 		}
 		t.Columns = append(t.Columns, Column{
-			Name:       name,
-			DataType:   NormalizeType(dataType, typtype),
-			UDTName:    udtName,
-			Nullable:   nullable,
-			HasDefault: hasDefault,
-			IsIdentity: isIdentity,
-			MaxLength:  maxLength,
+			Name:               name,
+			DataType:           NormalizeType(dataType, typtype),
+			UDTName:            udtName,
+			Nullable:           nullable,
+			HasDefault:         hasDefault,
+			IsIdentity:         isIdentity,
+			IdentityGeneration: identityGeneration,
+			MaxLength:          maxLength,
+			NumericPrecision:   numericPrecision,
+			NumericScale:       numericScale,
 		})
 	}
 	if err := rows.Err(); err != nil {
