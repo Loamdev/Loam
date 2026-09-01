@@ -49,7 +49,7 @@ func TestIntrospectFixtureTables(t *testing.T) {
 	schema, done := liveSchema(t)
 	defer done()
 
-	want := []string{"categories", "employees", "order_items", "orders", "products", "promotions", "users"}
+	want := []string{"categories", "employees", "order_items", "orders", "products", "promotions", "tenant_events", "tenant_users", "users"}
 	got := schema.SortedTableNames()
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("tables = %v, want %v", got, want)
@@ -117,6 +117,7 @@ func TestIntrospectFixturePrimaryKeys(t *testing.T) {
 	schema, done := liveSchema(t)
 	defer done()
 
+	// tenant_users is deliberately excluded: its key is composite and checked below.
 	for table, want := range map[string]string{
 		"users": "id", "orders": "id", "order_items": "id",
 		"products": "id", "categories": "id", "promotions": "id", "employees": "id",
@@ -141,18 +142,39 @@ func TestIntrospectFixturePrimaryKeys(t *testing.T) {
 	}
 }
 
+func TestIntrospectFixtureCompositePrimaryKey(t *testing.T) {
+	schema, done := liveSchema(t)
+	defer done()
+
+	tbl := schema.Tables["tenant_users"]
+	if tbl == nil {
+		t.Fatal("tenant_users missing")
+	}
+	if strings.Join(tbl.PrimaryKey, ",") != "tenant_id,user_ref" {
+		t.Errorf("primary key = %v, want [tenant_id user_ref] in key order", tbl.PrimaryKey)
+	}
+	for _, name := range []string{"tenant_id", "user_ref"} {
+		c, ok := tbl.Column(name)
+		if !ok || !c.IsPrimaryKey {
+			t.Errorf("%s is not marked IsPrimaryKey", name)
+		}
+	}
+}
+
 func TestIntrospectFixtureForeignKeys(t *testing.T) {
 	schema, done := liveSchema(t)
 	defer done()
 
 	// child.column -> parent.column
 	want := map[string]string{
-		"employees.manager_id":   "employees.id",
-		"orders.user_id":         "users.id",
-		"order_items.order_id":   "orders.id",
-		"order_items.product_id": "products.id",
-		"products.category_id":   "categories.id",
-		"promotions.category_id": "categories.id",
+		"employees.manager_id":    "employees.id",
+		"tenant_events.tenant_id": "tenant_users.tenant_id",
+		"tenant_events.user_ref":  "tenant_users.user_ref",
+		"orders.user_id":          "users.id",
+		"order_items.order_id":    "orders.id",
+		"order_items.product_id":  "products.id",
+		"products.category_id":    "categories.id",
+		"promotions.category_id":  "categories.id",
 	}
 
 	got := map[string]string{}
@@ -177,6 +199,22 @@ func TestIntrospectFixtureForeignKeys(t *testing.T) {
 	// The self-reference must be recorded, not dropped.
 	if !schema.Tables["employees"].SelfReferencing() {
 		t.Error("employees.manager_id -> employees.id was not recorded as a self-reference")
+	}
+
+	// The composite key must group into ONE constraint. Seen as two independent
+	// references, its columns get drawn separately and the pairs do not exist.
+	groups := schema.Tables["tenant_events"].FKGroups()
+	if len(groups) != 1 {
+		t.Fatalf("tenant_events has %d foreign key groups, want 1 composite", len(groups))
+	}
+	if !groups[0].Composite() {
+		t.Errorf("tenant_events key was not recognized as composite: %+v", groups[0])
+	}
+	if strings.Join(groups[0].ChildColumns, ",") != "tenant_id,user_ref" {
+		t.Errorf("child columns = %v, want [tenant_id user_ref] in constraint order", groups[0].ChildColumns)
+	}
+	if strings.Join(groups[0].ParentColumns, ",") != "tenant_id,user_ref" {
+		t.Errorf("parent columns = %v, want [tenant_id user_ref]", groups[0].ParentColumns)
 	}
 }
 

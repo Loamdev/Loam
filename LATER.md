@@ -159,3 +159,19 @@ anything matching `email`, `sku`, or `code` - get a per-row counter woven in, so
 construction, and that covers the common cases. A `UNIQUE` constraint on some other column could
 still collide and fail the batch. The fix is to read unique constraints during introspection and
 guarantee uniqueness for exactly those columns; deferred until a real schema actually hits it.
+
+### Running the app's own migrations
+
+Playbrige assumes the schema already exists (spec §13.1). An app that creates its schema with
+`migrate`/`alembic`/`rails db:migrate` needs those run between `playbrige up` and `playbrige seed`.
+Detecting and running a project's migration command means recognizing a dozen tool conventions and
+deciding when the schema is "settled"; deferred until the two-step workflow proves annoying enough
+to be worth guessing at.
+
+### Composite primary keys get correlated values
+
+A composite PK is generated unique, but its columns come from one counter, so a row looks like
+`(tenant_id=1237, user_ref=1238)`. Valid and unique, but unrealistic: real data has many rows per
+tenant. Making the leading column low-cardinality and the trailing one unique within it needs the
+generator to understand a key's shape rather than its columns; deferred as realism polish, not
+correctness.

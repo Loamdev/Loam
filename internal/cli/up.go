@@ -82,28 +82,54 @@ func runUp(ctx context.Context) error {
 	}
 
 	project := env.NewProjectName(time.Now())
-	if err := env.Up(ctx, composeFile, project); err != nil {
-		return Failf("Starting the environment", err,
-			"check the compose file starts cleanly with: docker compose -f "+composeFile+" config")
+	services := compose.ServiceNames()
+
+	// The state file is written before anything can fail, because it is the only
+	// record of which project name owns these containers. `docker compose up`
+	// creates the network and volumes even when it then fails to start a service,
+	// so writing state afterwards would strand whatever it did create and leave
+	// `down` reporting "no environment is running" over a live stack.
+	state := &env.State{
+		Project:     project,
+		ComposeFile: composeFile,
+		CreatedAt:   time.Now().UTC(),
+		DBURL:       dbURL,
+		AppURL:      resolveAppURL(cfg, compose),
+		Services:    services,
+	}
+	if err := env.SaveState(opts.dir, state); err != nil {
+		return Failf("Recording the environment", err,
+			"check that "+opts.dir+" is writable")
 	}
 
-	services := compose.ServiceNames()
+	// From here on, a failure leaves a recorded environment behind on purpose:
+	// the user can inspect it with `playbrige logs` and remove it with
+	// `playbrige down`. Every failure below says so.
+	const recovery = "the environment is still recorded: inspect it with 'playbrige logs', then remove it with 'playbrige down'"
+
+	if err := env.Up(ctx, composeFile, project); err != nil {
+		return Failf("Starting the environment", err,
+			"check the compose file starts cleanly with 'docker compose -f "+composeFile+" config'; "+recovery)
+	}
 	Step("Environment %s started (%s)", project, countServices(len(services)))
 
 	pool, err := db.Connect(ctx, dbURL, db.ReadyTimeout)
 	if err != nil {
 		return Failf("Waiting for the database", err,
-			fmt.Sprintf("the URL came from %s; check that service is healthy with: playbrige logs", dbSource))
+			fmt.Sprintf("the URL came from %s; %s", dbSource, recovery))
 	}
 	defer pool.Close()
 	Step("Database ready")
 
 	schema, err := db.Introspect(ctx, pool)
 	if err != nil {
-		return Failf("Reading the schema", err, "check the database is fully initialized")
+		return Failf("Reading the schema", err, "check the database is fully initialized; "+recovery)
 	}
 	if len(schema.Tables) == 0 {
-		Warn("the database has no tables in the public schema - there is nothing to seed")
+		// An empty public schema is the normal state of a container whose
+		// migrations have not run. Say so plainly rather than reporting success.
+		Warn("the database has no tables in the public schema, so there is nothing to seed")
+		Warn("if this app creates its schema with migrations, run them and then 'playbrige seed'")
 	}
 	Step("Schema read: %s, %s", countTables(len(schema.Tables)), countFKs(schema.FKCount()))
 
@@ -111,7 +137,7 @@ func runUp(ctx context.Context) error {
 	orderWarnings, err := db.TopoSort(schema)
 	if err != nil {
 		return Failf("Ordering the tables", err,
-			"the schema has foreign keys that cannot be satisfied in any order")
+			"the schema has foreign keys that cannot be satisfied in any order; "+recovery)
 	}
 	for _, w := range orderWarnings {
 		Warn("%s", w)
@@ -122,21 +148,10 @@ func runUp(ctx context.Context) error {
 		return err
 	}
 
-	state := &env.State{
-		Project:     project,
-		ComposeFile: composeFile,
-		CreatedAt:   time.Now().UTC(),
-		DBURL:       dbURL,
-		AppURL:      resolveAppURL(cfg, compose),
-		Services:    services,
-		Rows:        result.TotalRows,
-	}
+	// Update the record now that there is data to describe.
+	state.Rows = result.TotalRows
 	if err := env.SaveState(opts.dir, state); err != nil {
-		// The stack is up but unrecorded, which would strand it. Tear it back
-		// down rather than leaving containers the user cannot find.
-		_ = env.Down(ctx, composeFile, project)
-		return Failf("Recording the environment", err,
-			"check that "+opts.dir+" is writable")
+		Warn("could not record the row count: %v", err)
 	}
 
 	printEndpoints(state)

@@ -149,3 +149,32 @@ CREATE INDEX idx_orders_user_id ON orders (user_id);
 CREATE INDEX idx_orders_status ON orders (status);
 CREATE INDEX idx_order_items_order_id ON order_items (order_id);
 CREATE INDEX idx_products_category_id ON products (category_id);
+
+-- ---------------------------------------------------------------------
+-- tenant_users / tenant_events: a COMPOSITE primary key and a COMPOSITE
+-- foreign key referencing it.
+--
+-- This pair exists because composite keys used to abort `up` outright: the
+-- FK's two columns were drawn from their parent pools independently, so the
+-- (tenant_id, user_ref) pairs existed in no parent row and Postgres rejected
+-- the whole COPY. The seeder now draws a composite key as one tuple, and
+-- these tables keep it that way (spec section 13.3).
+-- ---------------------------------------------------------------------
+CREATE TABLE tenant_users (
+    tenant_id int NOT NULL,
+    user_ref  int NOT NULL,
+    label     varchar(60),
+    PRIMARY KEY (tenant_id, user_ref)
+);
+COMMENT ON TABLE tenant_users IS 'Composite primary key.';
+
+CREATE TABLE tenant_events (
+    id        bigserial PRIMARY KEY,
+    tenant_id int NOT NULL,
+    user_ref  int NOT NULL,
+    kind      varchar(30),
+    FOREIGN KEY (tenant_id, user_ref) REFERENCES tenant_users (tenant_id, user_ref)
+);
+COMMENT ON TABLE tenant_events IS 'Composite foreign key; must be drawn as a whole tuple.';
+
+CREATE INDEX idx_tenant_events_key ON tenant_events (tenant_id, user_ref);

@@ -1,6 +1,9 @@
 package db
 
-import "sort"
+import (
+	"sort"
+	"strings"
+)
 
 // Canonical column data types. Introspection normalises every Postgres type name
 // onto one of these so the generator only has to reason about a small set.
@@ -69,6 +72,11 @@ func (c Column) IsInteger() bool {
 
 // FK is a single-column foreign key declared on a table.
 type FK struct {
+	// ConstraintName is the Postgres constraint this reference belongs to. A
+	// multi-column foreign key produces one FK per column pair, all sharing
+	// this name, which is the only way to tell a composite key from several
+	// independent single-column ones.
+	ConstraintName string
 	// ChildColumn is the referencing column on the table that owns this FK.
 	ChildColumn string
 	// ParentTable is the referenced table.
@@ -168,4 +176,79 @@ func (s *Schema) Children(table string) []string {
 		}
 	}
 	return out
+}
+
+// FKGroup is one foreign key constraint, which may span several columns.
+type FKGroup struct {
+	// Name is the Postgres constraint name.
+	Name string
+	// ParentTable is the referenced table.
+	ParentTable string
+	// ChildColumns are the referencing columns, in constraint order.
+	ChildColumns []string
+	// ParentColumns are the referenced columns, positionally paired with
+	// ChildColumns.
+	ParentColumns []string
+	// Deferred is set when TopoSort had to break a cycle through this key.
+	Deferred bool
+}
+
+// Composite reports whether the constraint spans more than one column. A
+// composite key has to be drawn as a whole tuple: picking each column
+// independently produces combinations that do not exist in the parent.
+func (g FKGroup) Composite() bool {
+	return len(g.ChildColumns) > 1
+}
+
+// Key identifies the parent column set a value tuple is pooled under.
+func (g FKGroup) Key() string {
+	return g.ParentTable + "." + strings.Join(g.ParentColumns, ",")
+}
+
+// FKGroups returns the table's foreign keys grouped by constraint, so a
+// multi-column key is one entry rather than several. Order is deterministic.
+func (t *Table) FKGroups() []FKGroup {
+	byName := map[string]*FKGroup{}
+	var order []string
+
+	for _, fk := range t.FKs {
+		// A constraint name is always present from introspection; fall back to
+		// the column so a hand-built schema in a test still groups sanely.
+		name := fk.ConstraintName
+		if name == "" {
+			name = "fk_" + fk.ChildColumn
+		}
+		grp, ok := byName[name]
+		if !ok {
+			grp = &FKGroup{Name: name, ParentTable: fk.ParentTable, Deferred: fk.Deferred}
+			byName[name] = grp
+			order = append(order, name)
+		}
+		grp.ChildColumns = append(grp.ChildColumns, fk.ChildColumn)
+		grp.ParentColumns = append(grp.ParentColumns, fk.ParentColumn)
+		// Deferring any column of a constraint defers the whole thing: a
+		// partially populated composite key is not a valid reference.
+		if fk.Deferred {
+			grp.Deferred = true
+		}
+	}
+
+	sort.Strings(order)
+	out := make([]FKGroup, 0, len(order))
+	for _, name := range order {
+		out = append(out, *byName[name])
+	}
+	return out
+}
+
+// FKGroupFor returns the constraint that the named column participates in.
+func (t *Table) FKGroupFor(column string) (FKGroup, bool) {
+	for _, grp := range t.FKGroups() {
+		for _, c := range grp.ChildColumns {
+			if c == column {
+				return grp, true
+			}
+		}
+	}
+	return FKGroup{}, false
 }

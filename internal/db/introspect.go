@@ -149,7 +149,8 @@ func readPrimaryKeys(ctx context.Context, pool *pgxpool.Pool, s *Schema) error {
 // positionally, which is the only correct reading - and FK correctness is the
 // one thing this tool cannot get wrong (build spec section 12.5).
 const foreignKeysQuery = `
-SELECT child.relname      AS child_table,
+SELECT con.conname         AS constraint_name,
+       child.relname      AS child_table,
        child_att.attname  AS child_column,
        parent.relname     AS parent_table,
        parent_att.attname AS parent_column
@@ -164,7 +165,7 @@ JOIN pg_catalog.pg_attribute parent_att
   ON parent_att.attrelid = con.confrelid AND parent_att.attnum = cols.parent_attnum
 WHERE con.contype = 'f'
   AND ns.nspname  = 'public'
-ORDER BY child.relname, child_att.attname`
+ORDER BY child.relname, con.conname, cols.child_attnum`
 
 // readForeignKeys fills in each table's FKs.
 func readForeignKeys(ctx context.Context, pool *pgxpool.Pool, s *Schema) error {
@@ -175,8 +176,8 @@ func readForeignKeys(ctx context.Context, pool *pgxpool.Pool, s *Schema) error {
 	defer rows.Close()
 
 	for rows.Next() {
-		var childTable, childColumn, parentTable, parentColumn string
-		if err := rows.Scan(&childTable, &childColumn, &parentTable, &parentColumn); err != nil {
+		var constraintName, childTable, childColumn, parentTable, parentColumn string
+		if err := rows.Scan(&constraintName, &childTable, &childColumn, &parentTable, &parentColumn); err != nil {
 			return fmt.Errorf("scan foreign key: %w", err)
 		}
 		t, ok := s.Tables[childTable]
@@ -190,9 +191,10 @@ func readForeignKeys(ctx context.Context, pool *pgxpool.Pool, s *Schema) error {
 			continue
 		}
 		t.FKs = append(t.FKs, FK{
-			ChildColumn:  childColumn,
-			ParentTable:  parentTable,
-			ParentColumn: parentColumn,
+			ConstraintName: constraintName,
+			ChildColumn:    childColumn,
+			ParentTable:    parentTable,
+			ParentColumn:   parentColumn,
 		})
 	}
 	if err := rows.Err(); err != nil {

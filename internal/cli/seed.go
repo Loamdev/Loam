@@ -57,7 +57,7 @@ func seedEnvironment(ctx context.Context, pool *pgxpool.Pool, schema *db.Schema,
 	result, err := seed.Seed(ctx, pool, schema, seedOptionsFrom(cfg, allowed))
 	if err != nil {
 		return nil, Failf("Seeding", err,
-			"run 'playbrige logs db' to see what Postgres rejected")
+			"run 'playbrige logs db' to see what Postgres rejected; the environment is still recorded, remove it with 'playbrige down'")
 	}
 	for _, w := range result.Warnings {
 		Warn("%s", w)
