@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/shivansh-source/stateful-playwright/internal/db"
 )
@@ -120,6 +121,9 @@ func TestRowCountForSurvivesACycle(t *testing.T) {
 		FKs:     []db.FK{{ChildColumn: "a_id", ParentTable: "a", ParentColumn: "id"}},
 	}
 
+	// A deadline, not a bare receive: if the depth walk ever does recurse
+	// through the cycle, this test has to REPORT that rather than hang waiting
+	// for a result that never arrives.
 	done := make(chan int, 1)
 	go func() { done <- RowCountFor(s, "a", Options{DefaultRows: 1000}) }()
 
@@ -128,11 +132,8 @@ func TestRowCountForSurvivesACycle(t *testing.T) {
 		if got <= 0 {
 			t.Errorf("RowCountFor = %d, want a positive count", got)
 		}
-	default:
-		// Give the goroutine a chance rather than failing on a race.
-		if got := <-done; got <= 0 {
-			t.Errorf("RowCountFor = %d, want a positive count", got)
-		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("RowCountFor did not return within 5s: the depth walk is recursing through the foreign key cycle")
 	}
 }
 

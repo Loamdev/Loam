@@ -124,7 +124,13 @@ func (s Service) PublishedPorts() []string {
 }
 
 // projectRandomBytes is the amount of entropy appended to a project name.
-const projectRandomBytes = 2
+//
+// Four bytes, not two. Collisions only matter within a single second, since the
+// timestamp separates everything else, but the birthday bound is unforgiving:
+// with 2 bytes (65,536 values) just 200 names in the same second collide about
+// 26% of the time, and a collision means two environments share a project - so
+// one `down` tears down both. 4 bytes takes that to roughly 1 in 200,000.
+const projectRandomBytes = 4
 
 // NewProjectName returns a fresh, isolated compose project name of the form
 // "pb_<unix>_<random>".
