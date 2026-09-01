@@ -315,3 +315,81 @@ If that works, the MVP is done. **Stop and do not add features past this line** 
 5. **FK correctness is sacred.** Every foreign key must reference a row that exists. Incoherent data = the product has no value.
 6. **Stay in scope.** Anything in §2 is forbidden in the MVP. Put temptations in `LATER.md`.
 7. **Build phase by phase.** Each of the seven phases must run and pass its acceptance test before the next begins.
+
+---
+
+## 13. Clarifications resolved during the build
+
+The sections above left seven things unpinned. Each is answered here, with what the
+implementation actually does, so nobody has to guess again.
+
+### 13.1 Where the schema comes from — **assume it already exists**
+
+Playbrige does **not** run migrations and does not wait for an app to run them. It connects,
+introspects whatever is in the `public` schema, and seeds that. The bundled fixture loads its
+schema from an init SQL file that Postgres executes on first boot
+(`testapp/initdb/001_schema.sql` mounted at `/docker-entrypoint-initdb.d`), which is the
+supported pattern for the MVP.
+
+An empty `public` schema is therefore a normal, non-fatal outcome — a container whose migrations
+have not run. `up` warns twice and continues:
+
+```
+  ! the database has no tables in the public schema, so there is nothing to seed
+  ! if this app creates its schema with migrations, run them and then 'playbrige seed'
+```
+
+Running the app's own migration command is **out of scope** (`LATER.md`). The workflow for a
+migration-based app is: `playbrige up`, run your migrations, then `playbrige seed`.
+
+### 13.2 A parent with no rows — never invent a key
+
+Row counts are floored at 50 (`seed.minRows`), so a parent always has rows for its children to
+reference. If a pool is nevertheless empty, the rule is absolute: **never fabricate a foreign
+key** (§12.5). A nullable reference is left NULL; a NOT NULL reference fails with a named error
+identifying both sides. Fabricating a key would produce data that looks fine and is a lie.
+
+### 13.3 Composite primary and foreign keys — **supported**
+
+Foreign keys are grouped by constraint name (`db.FKGroup`), and a composite key is drawn as one
+whole tuple from a pool keyed on the parent's column set.
+
+This matters more than it sounds: drawing each column independently produces pairs that exist in
+no parent row, and Postgres rejects the entire COPY. That was a real failure before it was fixed —
+any schema with a composite FK aborted `up`.
+
+A partially nullable composite key counts as NOT NULL, because Postgres leaves a partly-NULL
+composite reference unenforced, which would silently drop the relationship rather than model it.
+
+Composite primary keys are generated unique but with correlated values (consecutive counters per
+row). They satisfy the constraint; making the leading column realistically low-cardinality is
+deferred (`LATER.md`).
+
+### 13.4 Unique constraints — unique by construction where it matters
+
+Columns whose names imply a natural key (`email`, `sku`, `code`) get a per-row counter woven in,
+so they cannot collide. Unique constraints are **not** otherwise introspected, so a `UNIQUE` index
+on some other random-valued column can still fail the batch. Deferred (`LATER.md`).
+
+### 13.5 NOT NULL columns are never nulled
+
+`Generator.Value` returns NULL only when `Column.Nullable` is true. A NOT NULL column always gets
+a value, and this is asserted by a test. The ~10% null rate applies exclusively to nullable
+columns.
+
+### 13.6 Where the App URL comes from
+
+In order: `app.url` in `playbrige.yml`, otherwise the first published host port belonging to a
+service that is **not** the Postgres one, rendered as `http://localhost:<port>`. When nothing
+qualifies the line is omitted entirely rather than printing a guess that does not resolve.
+
+### 13.7 Which service is "the Postgres one"
+
+A service qualifies when its image name contains `postgres`, `postgis`, `timescale`, or
+`pgvector`. When several qualify, the one publishing container port 5432 to the host wins;
+remaining ties break alphabetically, so the choice is deterministic rather than dependent on Go's
+map iteration order. When none qualifies, `up` fails before starting anything, naming the fix
+(`--db-url`, or `database.url` in `playbrige.yml`).
+
+Non-Postgres databases in the same compose file are ignored: they are simply services Playbrige
+does not introspect. Seeding a non-Postgres engine is out of scope (§2).

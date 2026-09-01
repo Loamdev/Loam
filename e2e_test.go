@@ -112,8 +112,8 @@ func TestEndToEndDefinitionOfDone(t *testing.T) {
 	for _, want := range []string{
 		"Environment pb_", "started (2 services)",
 		"Database ready",
-		"Schema read: 7 tables, 6 foreign keys",
-		"Seeded ", " rows across 7 tables in ",
+		"Schema read: 9 tables, 8 foreign keys",
+		"Seeded ", " rows across 9 tables in ",
 		"App:", "http://localhost:8080",
 		"DB:", "postgres://appuser:****@localhost:5433/appdb",
 		"Ready. Run 'playbrige down' when finished.",
@@ -148,7 +148,7 @@ func TestEndToEndDefinitionOfDone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("status failed: %v", err)
 	}
-	for _, want := range []string{"Environment pb_", "running", "Database:", "7 tables"} {
+	for _, want := range []string{"Environment pb_", "running", "Database:", "9 tables"} {
 		if !strings.Contains(statusOut, want) {
 			t.Errorf("status output is missing %q", want)
 		}
@@ -162,7 +162,7 @@ func TestEndToEndDefinitionOfDone(t *testing.T) {
 	if err != nil {
 		t.Fatalf("reset failed: %v", err)
 	}
-	for _, want := range []string{"Emptied 7 tables", "Seeded "} {
+	for _, want := range []string{"Emptied 9 tables", "Seeded "} {
 		if !strings.Contains(resetOut, want) {
 			t.Errorf("reset output is missing %q", want)
 		}
