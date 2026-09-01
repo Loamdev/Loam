@@ -30,7 +30,7 @@ foreign-key-correct data, and prints where to reach it; `playbrige down` leaves 
 - [x] **Phase 5** — FK-aware seeding via `COPY` — the core
 - [x] **Phase 6** — Wire it together: the `up` chain, `reset`, `status`, output polish
 
-Each phase is one branch and one PR, and ticks its own box on the way in.
+Each phase was one branch and one PR, merged only once its acceptance test passed.
 
 ---
 
@@ -79,12 +79,12 @@ Global flags, valid on every command:
 ### What `playbrige up` prints on success
 
 ```
-  ✔ Environment pb_1720001234 started (3 services)
+  ✔ Environment pb_1788263615_dbd4a91c started (2 services)
   ✔ Database ready
-  ✔ Schema read: 14 tables, 9 foreign keys
-  ✔ Seeded 10,000 rows across 14 tables in 0.8s
-  → App:  http://localhost:8080
-  → DB:   postgres://user:****@localhost:5433/appdb   (password masked)
+  ✔ Schema read: 9 tables, 8 foreign keys
+  ✔ Seeded 46,800 rows across 9 tables in 1.2s
+  → App:      http://localhost:8080
+  → DB:       postgres://appuser:****@localhost:5433/appdb   (password masked)
   Ready. Run 'playbrige down' when finished.
 ```
 
@@ -129,21 +129,26 @@ seed:
 
 ## Try it against the bundled fixture
 
-`testapp/` is the deliberately boring Compose + Postgres repo every phase's acceptance test runs
-against: a `db` service on host port `5433`, a placeholder `web` service on `8080` so App URL
-detection has a non-db port to find, and a schema (`categories`, `users`, `employees`, `products`,
-`promotions`, `orders`, `order_items`) that exercises multi-level FK chains, a self-referencing FK, a
-status column with a skewed distribution, timestamps, money, and name/email generation.
+`testapp/` is the deliberately boring Compose + Postgres repo the acceptance tests run against: a `db`
+service on host port `5433`, a placeholder `web` service on `8080` so App URL detection has a non-db
+port to find, and a nine-table schema (`categories`, `users`, `employees`, `products`, `promotions`,
+`orders`, `order_items`, `tenant_users`, `tenant_events`).
+
+It is built to force code paths open rather than to look realistic: a real enum type *and* a
+CHECK-constraint status column, a self-referencing FK, a nullable FK, a `uuid` PK, a `smallint` FK,
+`jsonb`, `numeric` money, a `date` and a naive `timestamp`, a three-level FK chain, and a composite
+PK/FK pair. See [`testapp/README.md`](testapp/README.md).
 
 ```sh
 make build
 cd testapp
 ../bin/playbrige up
 psql "postgres://appuser:apppass@localhost:5433/appdb" -c 'table orders limit 5;'
+../bin/playbrige status
 ../bin/playbrige down
 ```
 
-Until Phase 6 lands the commands run but the chain is not wired end to end — see Status above.
+On a warm machine that whole cycle takes about 15 seconds and seeds roughly 47,000 rows.
 
 ## What this is NOT
 
@@ -161,23 +166,37 @@ full parking lot and the reasoning.
 - **Not test infrastructure.** No CI integration, GitHub App, PR environments, MCP server, agent API,
   login/session injection, snapshots, branching, or flaky-test triage.
 
+## Documentation
+
+| I want to… | Read |
+|---|---|
+| Understand how the code works, before changing it | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
+| Set up, run the tests, open a PR | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) |
+| Know what the tool is required to do | [`docs/PLAYBRIGE_MVP_BUILD_SPEC.md`](docs/PLAYBRIGE_MVP_BUILD_SPEC.md) |
+| Know why something was built this way | [`docs/BUILD_SESSION_LOG.md`](docs/BUILD_SESSION_LOG.md) |
+| Know what was deliberately left out | [`LATER.md`](LATER.md) |
+
+[`docs/README.md`](docs/README.md) indexes all of it and suggests a reading order.
+
 ## Contributing
 
-- One branch per phase, one PR per phase, in phase order. A phase merges only once its acceptance
-  test in the spec passes.
-- Stay inside the phase you are on. Anything tempting from a later phase, or from `LATER.md`, stays
-  out.
-- Package signatures are frozen by the build contract — implement them, do not rename or reshape
-  them.
-- CI must be green before merge: **fmt, vet, lint, test, tidy, build**. Locally that is:
+Full guide in [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md). The short version:
+
+- Read [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) before changing `internal/`. Several parts
+  look wrong until you know why they are that way — two of them deliberately depart from the spec
+  because the spec's suggestion was incorrect.
+- Three test tiers. Only the first needs no Docker:
 
 ```sh
-gofmt -l .          # must print nothing
-go vet ./...
-go test ./...
-go mod tidy         # must leave go.mod and go.sum unchanged
-go build ./...
+go test ./...                                        # unit
+PLAYBRIGE_TEST_DB=… go test ./... -run Fixture       # integration, needs a live Postgres
+go test -tags=e2e -timeout 15m .                     # end-to-end, needs Docker
+make ci                                              # fmt + vet + test + build
 ```
 
-- Never log or persist a real password; mask them in printed output. Use `COPY`, never row-by-row
-  `INSERT`. Every foreign key value must come from a parent row that exists.
+- CI runs eight jobs and all must be green: **fmt, vet, lint, test, tidy, build, integration, e2e**.
+  Pin golangci-lint to **v2.12.2** locally to match it.
+- The rules that never bend: never log or persist a real password, mask them in printed output; use
+  `COPY`, never row-by-row `INSERT`; every foreign key value must come from a parent row that exists;
+  the zero-config path must keep working. Anything you decide not to do goes in `LATER.md` with the
+  reason.
