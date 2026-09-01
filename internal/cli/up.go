@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/shivansh-source/stateful-playwright/internal/config"
+	"github.com/shivansh-source/stateful-playwright/internal/db"
 	"github.com/shivansh-source/stateful-playwright/internal/env"
 	"github.com/spf13/cobra"
 )
@@ -44,6 +46,15 @@ func runUp(ctx context.Context) error {
 		return Failf("Reading the project directory", err, "check the --dir flag")
 	}
 
+	// Refuse to strand an environment the user has already started: without the
+	// recorded project name, `down` could never clean it up. This is checked
+	// before anything else because it is the most actionable thing to say.
+	if existing, loadErr := env.LoadState(opts.dir); loadErr == nil {
+		return Failf("Starting the environment",
+			fmt.Errorf("environment %s is already recorded in %s", existing.Project, env.StatePath(opts.dir)),
+			"run 'playbrige down' first, or 'playbrige status' to see what is running")
+	}
+
 	composeFile := resolveComposeFile(opts.dir, opts.file)
 	compose, err := env.ParseCompose(composeFile)
 	if err != nil {
@@ -51,12 +62,18 @@ func runUp(ctx context.Context) error {
 			"run playbrige from a directory containing a docker-compose.yml, or pass --file")
 	}
 
-	// Refuse to strand an environment the user has already started: without the
-	// recorded project name, `down` could never clean it up.
-	if existing, loadErr := env.LoadState(opts.dir); loadErr == nil {
-		return Failf("Starting the environment",
-			fmt.Errorf("environment %s is already recorded in %s", existing.Project, env.StatePath(opts.dir)),
-			"run 'playbrige down' first, or 'playbrige status' to see what is running")
+	cfg, err := config.Load(opts.dir)
+	if err != nil {
+		return Failf("Reading "+config.FileName, err,
+			"fix the file, or delete it: playbrige works with no config at all")
+	}
+
+	// Resolved before anything is started, so a repo with no detectable
+	// Postgres fails immediately instead of after a container boot.
+	dbURL, dbSource, err := resolveDBURL(cfg, compose)
+	if err != nil {
+		return Failf("Finding the database", err,
+			"Playbrige needs one Postgres service publishing port 5432 to the host")
 	}
 
 	if err := env.CheckDocker(ctx); err != nil {
@@ -71,10 +88,28 @@ func runUp(ctx context.Context) error {
 	}
 
 	services := compose.ServiceNames()
+	Step("Environment %s started (%s)", project, countServices(len(services)))
+
+	pool, err := db.Connect(ctx, dbURL, db.ReadyTimeout)
+	if err != nil {
+		return Failf("Waiting for the database", err,
+			fmt.Sprintf("the URL came from %s; check that service is healthy with: playbrige logs", dbSource))
+	}
+	defer pool.Close()
+	Step("Database ready")
+
+	tables, err := db.TableNames(ctx, pool)
+	if err != nil {
+		return Failf("Reading the schema", err, "check the database is fully initialized")
+	}
+	Step("Schema read: %s", countTables(len(tables)))
+
 	state := &env.State{
 		Project:     project,
 		ComposeFile: composeFile,
 		CreatedAt:   time.Now().UTC(),
+		DBURL:       dbURL,
+		AppURL:      resolveAppURL(cfg, compose),
 		Services:    services,
 	}
 	if err := env.SaveState(opts.dir, state); err != nil {
@@ -85,7 +120,6 @@ func runUp(ctx context.Context) error {
 			"check that "+opts.dir+" is writable")
 	}
 
-	Step("Environment %s started (%s)", project, countServices(len(services)))
 	Ready()
 	return nil
 }
@@ -121,4 +155,12 @@ func ensureDirExists(dir string) error {
 		return fmt.Errorf("project directory %s is not a directory", dir)
 	}
 	return nil
+}
+
+// countTables renders a table count with the right plural.
+func countTables(n int) string {
+	if n == 1 {
+		return "1 table"
+	}
+	return fmt.Sprintf("%d tables", n)
 }
