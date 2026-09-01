@@ -73,7 +73,7 @@ func TestFindPostgres(t *testing.T) {
 }
 
 func TestFindPostgresIsDeterministic(t *testing.T) {
-	// Map iteration order is randomised, so the same compose file must not
+	// Map iteration order is randomized, so the same compose file must not
 	// resolve to a different service between runs.
 	c := &ComposeFile{Services: map[string]Service{
 		"zebra": {Name: "zebra", Image: "postgres:16"},
