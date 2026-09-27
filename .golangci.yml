@@ -57,7 +57,10 @@ linters:
       # status CHECK and the user_status enum), not prose. Renaming a column
       # value to satisfy a spell checker would be the tail wagging the dog.
       ignore-rules:
+        # Both are column-name matchers or fixture data, not prose. Real
+        # schemas spell these the British way and we have to match them.
         - cancelled
+        - organisation
 
     revive:
       severity: warning

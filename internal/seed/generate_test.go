@@ -551,3 +551,50 @@ func TestFitUniqueGivesUpTheCounterLast(t *testing.T) {
 		}
 	}
 }
+
+func TestNamedThingsThatAreNotPeople(t *testing.T) {
+	// Regression: the generic "name" rule matched product_name, so order_items
+	// listed people as products - valid data that is obviously wrong the moment
+	// anyone looks at the demo. Specific rules must win over the generic one.
+	g := NewGenerator(Options{Seed: 3})
+
+	person := map[string]bool{}
+	for _, n := range indianFirstNames {
+		person[n] = true
+	}
+
+	notAPerson := []string{"product_name", "item_name", "company", "vendor", "brand", "category", "title", "headline"}
+	for _, col := range notAPerson {
+		t.Run(col, func(t *testing.T) {
+			c := db.Column{Name: col, DataType: db.TypeVarchar, MaxLength: 200}
+			for i := 0; i < 60; i++ {
+				v := g.Value("t", c).(string)
+				if v == "" {
+					t.Fatalf("%s produced an empty value", col)
+				}
+				// A person's given name as the first word means the generic
+				// name rule captured this column again.
+				if first, _, _ := strings.Cut(v, " "); person[first] {
+					t.Errorf("%s produced %q, which starts with a person's given name", col, v)
+				}
+			}
+		})
+	}
+
+	// The generic rule must still own the columns that really are people.
+	for _, col := range []string{"full_name", "name", "contact_name"} {
+		c := db.Column{Name: col, DataType: db.TypeVarchar, MaxLength: 200}
+		v := g.Value("t", c).(string)
+		if first, _, _ := strings.Cut(v, " "); !person[first] {
+			t.Errorf("%s produced %q, want an Indian given name", col, v)
+		}
+	}
+}
+
+func TestCapitalize(t *testing.T) {
+	for in, want := range map[string]string{"": "", "a": "A", "sparse": "Sparse", "Already": "Already"} {
+		if got := capitalize(in); got != want {
+			t.Errorf("capitalize(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

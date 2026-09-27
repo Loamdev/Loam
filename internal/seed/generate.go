@@ -212,6 +212,24 @@ func (g *Generator) byName(table string, c db.Column) (any, bool) {
 			// not: these often carry a unique index.
 			g.seqs[table+"."+name]++
 			return g.fitUnique(strings.ToUpper(g.fake.LetterN(3))+"-", g.seqs[table+"."+name], 5, "", c), true
+		// Things that are named but are not people. These must come before the
+		// generic "name" rule below, which would otherwise claim them: a column
+		// called product_name matched it and got "Rohan Gupta", which is valid
+		// data and obviously wrong the moment anyone looks at it.
+		case strings.Contains(name, "product_name"), strings.Contains(name, "item_name"),
+			name == "product", name == "item":
+			return g.fitString(g.fake.ProductName(), c), true
+		case strings.Contains(name, "company"), strings.Contains(name, "organization"),
+			strings.Contains(name, "organisation"), strings.Contains(name, "employer"),
+			strings.Contains(name, "vendor"), strings.Contains(name, "supplier"),
+			strings.Contains(name, "merchant"), strings.Contains(name, "brand"):
+			return g.fitString(g.fake.Company(), c), true
+		case strings.Contains(name, "category"), strings.Contains(name, "department"):
+			return g.fitString(g.fake.ProductCategory(), c), true
+		case strings.Contains(name, "title"), strings.Contains(name, "subject"),
+			strings.Contains(name, "headline"), strings.Contains(name, "label"):
+			return g.fitString(capitalize(g.fake.Adjective())+" "+g.fake.NounConcrete(), c), true
+
 		case strings.Contains(name, "full_name"), strings.Contains(name, "fullname"), strings.Contains(name, "name"):
 			return g.fitString(g.pick(indianFirstNames)+" "+g.pick(indianLastNames), c), true
 		}
@@ -548,4 +566,13 @@ func isStatusName(column string) bool {
 		}
 	}
 	return false
+}
+
+// capitalize upper-cases the first letter of a word, leaving the rest alone.
+// strings.Title is deprecated and title-cases every word, which is wrong here.
+func capitalize(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
 }
