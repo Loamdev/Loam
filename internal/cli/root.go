@@ -55,7 +55,7 @@ your own Docker - no server, no accounts, no network calls.`,
 	pf := root.PersistentFlags()
 	pf.StringVarP(&opts.file, "file", "f", "docker-compose.yml", "compose file to run")
 	pf.StringVar(&opts.dir, "dir", ".", "project directory containing the compose file and .loam state")
-	pf.StringVar(&opts.dbURL, "db-url", "", "Postgres URL override (default: detect from the compose file)")
+	pf.StringVar(&opts.dbURL, "db-url", "", "Postgres to use; lets seed and reset run on any database (default: detect from the compose file)")
 	pf.IntVar(&opts.rows, "rows", 0, "base row count per leaf table (0: use loam.yml or the built-in default)")
 
 	root.AddCommand(

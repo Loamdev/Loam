@@ -18,11 +18,12 @@ func newResetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "reset",
 		Short: "Truncate every table and seed fresh data",
-		Long: `Empty every table in the running environment's database and generate a fresh
-set of synthetic rows, without restarting any container.
+		Long: `Empty every table in the database and generate a fresh set of synthetic
+rows, without restarting any container.
 
 This is the fast way back to a known state: no image pulls, no container
-restart, just new data.`,
+restart, just new data. Like seed, it works on the environment 'loam up'
+created, or on any reachable Postgres given with --db-url.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runReset(cmd.Context())
@@ -60,12 +61,15 @@ func runReset(ctx context.Context) error {
 		return err
 	}
 
-	live.State.Rows = result.TotalRows
-	if err := env.SaveState(opts.dir, live.State); err != nil {
-		Warn("could not record the new row count: %v", err)
+	// Nothing to record, and no endpoints to print, when the database was named
+	// directly rather than created by `loam up`.
+	if live.State != nil {
+		live.State.Rows = result.TotalRows
+		if err := env.SaveState(opts.dir, live.State); err != nil {
+			Warn("could not record the new row count: %v", err)
+		}
+		printEndpoints(live.State)
 	}
-
-	printEndpoints(live.State)
 	Ready()
 	return nil
 }
