@@ -5,25 +5,25 @@ import (
 	"errors"
 	"os"
 
-	"github.com/shivansh-source/stateful-playwright/internal/env"
+	"github.com/loamdev/loam/internal/env"
 	"github.com/spf13/cobra"
 )
 
-// logsOptions holds the flags specific to `playbrige logs`.
+// logsOptions holds the flags specific to `loam logs`.
 type logsOptions struct {
 	follow bool // --follow: keep streaming new output
 }
 
-// logsOpts is the flag state for `playbrige logs`, rebound on every NewRootCmd.
+// logsOpts is the flag state for `loam logs`, rebound on every NewRootCmd.
 var logsOpts logsOptions
 
-// newLogsCmd builds `playbrige logs`: stream container logs for the current
+// newLogsCmd builds `loam logs`: stream container logs for the current
 // environment, optionally narrowed to the named services.
 func newLogsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logs [service...]",
 		Short: "Stream container logs for the current environment",
-		Long: `Show the logs of the environment recorded in .playbrige/state.json. Name one
+		Long: `Show the logs of the environment recorded in .loam/state.json. Name one
 or more compose services to narrow the output; with no arguments, every service
 is included.`,
 		Args: cobra.ArbitraryArgs,
@@ -45,7 +45,7 @@ func runLogs(ctx context.Context, services []string) error {
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return Failf("Reading the environment state", err,
-				"run 'playbrige up' first")
+				"run 'loam up' first")
 		}
 		return Failf("Reading the environment state", err,
 			"delete "+env.StatePath(opts.dir)+" if it is corrupt")
@@ -53,7 +53,7 @@ func runLogs(ctx context.Context, services []string) error {
 
 	if err := env.Logs(ctx, state.ComposeFile, state.Project, logsOpts.follow, services); err != nil {
 		return Failf("Streaming logs for "+state.Project, err,
-			"check the environment is still up with: playbrige status")
+			"check the environment is still up with: loam status")
 	}
 	return nil
 }

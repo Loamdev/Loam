@@ -6,17 +6,17 @@ import (
 	"os"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/shivansh-source/stateful-playwright/internal/config"
-	"github.com/shivansh-source/stateful-playwright/internal/db"
-	"github.com/shivansh-source/stateful-playwright/internal/env"
+	"github.com/loamdev/loam/internal/config"
+	"github.com/loamdev/loam/internal/db"
+	"github.com/loamdev/loam/internal/env"
 )
 
 // liveEnv is a connection to the environment `up` recorded, with its schema
 // already read and ordered. seed, reset, and status all need exactly this.
 type liveEnv struct {
-	// State is what `up` wrote to .playbrige/state.json.
+	// State is what `up` wrote to .loam/state.json.
 	State *env.State
-	// Config is the optional playbrige.yml, or defaults.
+	// Config is the optional loam.yml, or defaults.
 	Config *config.Config
 	// Pool is an open connection pool. Close releases it.
 	Pool *pgxpool.Pool
@@ -40,7 +40,7 @@ func openEnvironment(ctx context.Context, withSchema bool) (*liveEnv, error) {
 	state, err := env.LoadState(opts.dir)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			return nil, Failf("Reading the environment state", err, "run 'playbrige up' first")
+			return nil, Failf("Reading the environment state", err, "run 'loam up' first")
 		}
 		return nil, Failf("Reading the environment state", err,
 			"delete "+env.StatePath(opts.dir)+" if it is corrupt")
@@ -49,7 +49,7 @@ func openEnvironment(ctx context.Context, withSchema bool) (*liveEnv, error) {
 	cfg, err := config.Load(opts.dir)
 	if err != nil {
 		return nil, Failf("Reading "+config.FileName, err,
-			"fix the file, or delete it: playbrige works with no config at all")
+			"fix the file, or delete it: loam works with no config at all")
 	}
 
 	// A flag or config override still wins over what `up` recorded, so a moved
@@ -63,13 +63,13 @@ func openEnvironment(ctx context.Context, withSchema bool) (*liveEnv, error) {
 	if dbURL == "" {
 		return nil, Failf("Finding the database",
 			errors.New("no database URL was recorded for this environment"),
-			"pass --db-url, or run 'playbrige down' and 'playbrige up' again")
+			"pass --db-url, or run 'loam down' and 'loam up' again")
 	}
 
 	pool, err := db.Connect(ctx, dbURL, db.ReadyTimeout)
 	if err != nil {
 		return nil, Failf("Connecting to the database", err,
-			"check the environment is still up with 'playbrige status'")
+			"check the environment is still up with 'loam status'")
 	}
 
 	live := &liveEnv{State: state, Config: cfg, Pool: pool}

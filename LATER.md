@@ -4,7 +4,7 @@ The parking lot. **The rule: if it is on this list, it does not go in the MVP.**
 
 Everything here was considered and deliberately deferred. Some of it is genuinely good; that is
 exactly why it needs to be written down and left alone — the MVP is the single-Postgres local happy
-path described in [`docs/PLAYBRIGE_MVP_BUILD_SPEC.md`](docs/PLAYBRIGE_MVP_BUILD_SPEC.md) §11, and the
+path described in [`docs/BUILD_SPEC.md`](docs/BUILD_SPEC.md) §11, and the
 way that ships is by not building anything else first. When one of these feels necessary mid-phase,
 the move is to add a line here and carry on, not to open a branch.
 
@@ -54,7 +54,7 @@ test passes, and even then only if the core stays solid).
 | Agent APIs | Same, and would freeze the internals too early. |
 | Migration-safety analysis | A separate product (schema diffing and risk scoring), not environment creation. |
 | Failure intelligence | Needs a corpus of runs to learn from; there are no runs yet. |
-| Flaky-test triage | Belongs to a test-running product; Playbrige does not run tests. |
+| Flaky-test triage | Belongs to a test-running product; Loam does not run tests. |
 | Webhook routing / third-party integration handling | Inbound traffic implies a public endpoint, which the local-only constraint rules out. |
 
 ### Data handling
@@ -103,7 +103,7 @@ interleave its output with the summary block.
 ### `--with` targeted state
 
 Force specific edge-case rows on top of the generated data, e.g.
-`playbrige up --with "users:status=churned:count=5"`: parse the selector, generate those rows to the
+`loam up --with "users:status=churned:count=5"`: parse the selector, generate those rows to the
 requested spec, and insert them alongside the normal batch while keeping FK correctness. This is the
 seed of the "reproduce this bug" feature and the most interesting thing on this list — deferred
 because a selector grammar is easy to get wrong and impossible to change later, and because it must
@@ -126,7 +126,7 @@ to prove where the time actually goes.
 Phase 1 gives every `up` its own compose project, so containers, networks, and volumes are genuinely
 isolated. Host ports are not: a compose file that publishes `5433:5432` binds that port on the
 machine, so a second `up` of the *same* repo fails with an address-already-in-use error from Docker
-before Playbrige gets a say. Isolation across *different* repos, or across copies with different
+before Loam gets a say. Isolation across *different* repos, or across copies with different
 published ports, works today.
 
 The fix is to stop publishing the compose file's fixed ports and let Docker assign ephemeral ones,
@@ -135,7 +135,7 @@ then read the real port back with `docker compose -p <project> port db 5432`. De
 (`5433:5432` → `localhost:5433`), and rewriting the user's port bindings is a larger behavior change
 than the MVP should make. Revisit if anyone actually wants two copies of one repo up at once.
 
-### Types Playbrige does not generate yet
+### Types Loam does not generate yet
 
 `bytea`, `inet`/`cidr`, `interval`, and array columns are left to their database
 default. A nullable or defaulted column of one of these types is skipped with a warning; a NOT NULL
@@ -168,8 +168,8 @@ not solved: the honest response is to warn that the column is too narrow for the
 
 ### Running the app's own migrations
 
-Playbrige assumes the schema already exists (spec §13.1). An app that creates its schema with
-`migrate`/`alembic`/`rails db:migrate` needs those run between `playbrige up` and `playbrige seed`.
+Loam assumes the schema already exists (spec §13.1). An app that creates its schema with
+`migrate`/`alembic`/`rails db:migrate` needs those run between `loam up` and `loam seed`.
 Detecting and running a project's migration command means recognizing a dozen tool conventions and
 deciding when the schema is "settled"; deferred until the two-step workflow proves annoying enough
 to be worth guessing at.

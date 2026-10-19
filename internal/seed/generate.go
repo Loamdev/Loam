@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/brianvoe/gofakeit/v7"
-	"github.com/shivansh-source/stateful-playwright/internal/config"
-	"github.com/shivansh-source/stateful-playwright/internal/db"
+	"github.com/loamdev/loam/internal/config"
+	"github.com/loamdev/loam/internal/db"
 )
 
 // DefaultNullRate is how often a nullable, non-foreign-key column is left empty.
@@ -304,7 +304,7 @@ func (g *Generator) byType(c db.Column) any {
 
 // distributionFor resolves the value mix for a column, caching the answer.
 //
-// Precedence: an explicit playbrige.yml distribution, then the column's real
+// Precedence: an explicit loam.yml distribution, then the column's real
 // permitted values, then the generic status profile for a status-like name. A
 // configured distribution is intersected with the permitted values, because a
 // value the CHECK rejects would fail the entire COPY rather than one row.

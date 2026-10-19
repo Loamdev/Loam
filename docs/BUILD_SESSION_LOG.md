@@ -1,34 +1,34 @@
-# Playbrige MVP — Build Session Log
+# Loam MVP — Build Session Log
 
-A complete record of the session that built the Playbrige MVP, kept so the reasoning behind the
+A complete record of the session that built the Loam MVP, kept so the reasoning behind the
 code is recoverable later. Paste or import this straight into Notion.
 
-- **Repo:** `shivansh-source/stateful-playwright` (module path `github.com/shivansh-source/stateful-playwright`, binary `playbrige`)
-- **Spec:** `docs/PLAYBRIGE_MVP_BUILD_SPEC.md` — the source of truth
+- **Repo:** `loamdev/loam` (module path `github.com/loamdev/loam`, binary `loam`)
+- **Spec:** `docs/BUILD_SPEC.md` — the source of truth
 - **Outcome:** MVP complete, all seven phases merged to `main` (through PR #12)
 - **Size:** 37 Go files, ~7,970 lines
 - **Final state:** whole cycle 15.2s (target ~30s), 46,800 rows seeded in 1.2s (target ~10k in 2s)
 
 ---
 
-## 1. What Playbrige does
+## 1. What Loam does
 
 One command inside a repo that has a `docker-compose.yml` with Postgres in it:
 
 ```
-$ playbrige up
+$ loam up
   ✔ Environment pb_1788263615_dbd4 started (2 services)
   ✔ Database ready
   ✔ Schema read: 9 tables, 8 foreign keys
   ✔ Seeded 46,800 rows across 9 tables in 1.2s
   → App:      http://localhost:8080
   → DB:       postgres://appuser:****@localhost:5433/appdb   (password masked)
-  Ready. Run 'playbrige down' when finished.
+  Ready. Run 'loam down' when finished.
 ```
 
 It starts an isolated copy of the Compose stack, waits for Postgres, reads the schema, fills every
 table with foreign-key-correct synthetic data via bulk `COPY`, and prints where to reach it.
-`playbrige down` removes containers, networks, and volumes.
+`loam down` removes containers, networks, and volumes.
 
 Six commands: `up`, `down`, `status`, `reset`, `seed`, `logs`.
 
@@ -38,7 +38,7 @@ Six commands: `up`, `down`, `status`, `reset`, `seed`, `logs`.
 
 | Decision | Choice | Why |
 |---|---|---|
-| Module path | `github.com/shivansh-source/stateful-playwright` | Must match the repo URL for Go tooling, even though the product is named Playbrige. Binary is still `playbrige` via the Makefile. |
+| Module path | `github.com/loamdev/loam` | Must match the repo URL for Go tooling, even though the product is named Loam. Binary is still `loam` via the Makefile. |
 | Existing code | Discarded | The prior "Week 1 Docker orchestration layer" scaffold was replaced wholesale, at the user's direction. |
 | Branching | One branch + one PR per spec phase | The spec demands phase-by-phase delivery with acceptance tests; the user reviews each as its own PR. |
 | Pushing | The user pushes and merges, always | Claude's credentials cannot reach the repo (see §8). |
@@ -59,15 +59,15 @@ across all phases), the `testapp/` fixture, and CI.
 ### Phase 1 — Compose up/down with isolation
 `internal/env`: compose parsing (both environment forms, both port forms, `${VAR}` interpolation from
 the process env plus a sibling `.env`), project names `pb_<unix>_<random>`, Docker CLI wrappers,
-atomic `.playbrige/state.json`.
+atomic `.loam/state.json`.
 
 **Acceptance:** two `up` runs produced two fully independent stacks — distinct containers, networks,
 and volumes, confirmed via `docker ps` / `network ls` / `volume ls`. `down` left **0 containers,
-0 networks, 0 volumes** and removed `.playbrige/`. A second `down` exited 0. ✅
+0 networks, 0 volumes** and removed `.loam/`. A second `down` exited 0. ✅
 
 ### Phase 2 — Connect to Postgres
-`internal/config` (optional `playbrige.yml`), `internal/db/connect.go` with the mandatory 30s × 1s
-readiness retry loop, and URL resolution: `--db-url` → `playbrige.yml` → compose auto-detect.
+`internal/config` (optional `loam.yml`), `internal/db/connect.go` with the mandatory 30s × 1s
+readiness retry loop, and URL resolution: `--db-url` → `loam.yml` → compose auto-detect.
 
 **Acceptance:** `up` on the fixture with **zero config** connected in 6.8s and listed the tables,
 auto-deriving `postgres://appuser:apppass@localhost:5433/appdb` and `http://localhost:8080`. ✅
@@ -177,16 +177,16 @@ earlier check was a false positive caused by Git Bash translating a pipe. Nothin
 
 ## 5. Spec gaps closed (now recorded as spec §13)
 
-The spec left seven things unpinned. All are now answered in `docs/PLAYBRIGE_MVP_BUILD_SPEC.md` §13.
+The spec left seven things unpinned. All are now answered in `docs/BUILD_SPEC.md` §13.
 
 | § | Question | Resolution |
 |---|---|---|
-| 13.1 | Where does the schema come from? | Playbrige does **not** run migrations. It seeds whatever is in `public`. An empty schema is normal and non-fatal, and `up` explains the two-step workflow: `up`, run your migrations, then `seed`. |
+| 13.1 | Where does the schema come from? | Loam does **not** run migrations. It seeds whatever is in `public`. An empty schema is normal and non-fatal, and `up` explains the two-step workflow: `up`, run your migrations, then `seed`. |
 | 13.2 | A parent with no rows? | Row counts floored at 50. If a pool is empty anyway: NULL if nullable, **named error** if NOT NULL. Never fabricates a key. |
 | 13.3 | Composite PKs and FKs? | **Supported** — drawn as whole tuples. See §4.5. |
 | 13.4 | Unique constraints? | `email`/`sku`/`code` get a per-row counter so they cannot collide. Other UNIQUE columns are a documented deferral. |
 | 13.5 | Can a NOT NULL column be nulled? | No. `Value()` nulls only when `Column.Nullable`; asserted by test. |
-| 13.6 | Where does the App URL come from? | `playbrige.yml app.url`, else the first published non-Postgres port. Prints nothing if neither. |
+| 13.6 | Where does the App URL come from? | `loam.yml app.url`, else the first published non-Postgres port. Prints nothing if neither. |
 | 13.7 | Which service is Postgres? | Image contains `postgres`/`postgis`/`timescale`/`pgvector`; the one publishing 5432 wins; ties alphabetical for determinism. |
 
 ---
@@ -205,7 +205,7 @@ The last two are the ones that matter:
   **independent** check that no container, network, or volume survived.
 
 Both live suites are gated so `go test ./...` never needs Docker: integration on
-`PLAYBRIGE_TEST_DB`, e2e behind the `e2e` build tag.
+`LOAM_TEST_DB`, e2e behind the `e2e` build tag.
 
 ### Running things locally
 
@@ -213,9 +213,9 @@ Both live suites are gated so `go test ./...` never needs Docker: integration on
 go test ./...                                     # unit tests, no Docker needed
 go test -tags=e2e -v -timeout 15m .               # full definition of done, needs Docker
 
-playbrige up --dir testapp                        # bring the fixture up
-PLAYBRIGE_TEST_DB=postgres://appuser:apppass@localhost:5433/appdb go test ./... -run Fixture -v
-playbrige down --dir testapp
+loam up --dir testapp                        # bring the fixture up
+LOAM_TEST_DB=postgres://appuser:apppass@localhost:5433/appdb go test ./... -run Fixture -v
+loam down --dir testapp
 
 make ci                                           # fmt + vet + test + build
 ```
@@ -259,7 +259,7 @@ none of which were started, by design.
 Worth knowing before the next session.
 
 - **No repo access from the CLI.** `gh` is authenticated as `shivanshCapmob`, which cannot see
-  `shivansh-source/stateful-playwright`. `git fetch`, `git push`, `gh pr view`, and `gh pr checks`
+  `loamdev/loam`. `git fetch`, `git push`, `gh pr view`, and `gh pr checks`
   all fail with "Repository not found"; the raw URL 404s. Consequences: **CI logs cannot be read**
   (reproduce each job locally instead), and `origin/*` / `main` refs go stale because only GitHub
   Desktop can fetch. Never conclude a branch is unmerged from a local ref alone.
@@ -276,8 +276,8 @@ Worth knowing before the next session.
 ## 9. Git history
 
 ```
-2316b1e  Phase 0: reset to Playbrige MVP scaffold, add CI checks
-b994791  Phase 1: isolated compose up/down and .playbrige/state.json
+2316b1e  Phase 0: reset to Loam MVP scaffold, add CI checks
+b994791  Phase 1: isolated compose up/down and .loam/state.json
 7acc84e  ci: run checks on every PR, not just PRs targeting main
 102b694  Merge CI trigger fix into the phase 1 branch
 d9cf0cd  added some changes          ← Phase 2, committed by the user
@@ -314,7 +314,7 @@ internal/
     connect.go introspect.go model.go toposort.go
   seed/                     # the core
     generate.go distributions.go seeder.go
-  config/config.go          # optional playbrige.yml
+  config/config.go          # optional loam.yml
 testapp/                    # the fixture CI runs against
 e2e_test.go                 # spec §11 definition of done (build-tagged)
 ```
@@ -333,5 +333,5 @@ Per spec §11 — *"Stop and do not add features past this line"* — the build 
 of done. The next step is showing it to real developers, not building more.
 
 Everything deferred is in `LATER.md` with a reason. The most interesting item there is `--with`
-targeted state (`playbrige up --with "users:status=churned:count=5"`), which is the seed of the
+targeted state (`loam up --with "users:status=churned:count=5"`), which is the seed of the
 "reproduce this bug" feature.

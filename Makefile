@@ -1,13 +1,13 @@
-# Playbrige developer tasks.
+# Loam developer tasks.
 #
 # Portable between Git Bash on Windows and any POSIX shell on Linux/macOS:
 # recipes use only plain shell commands and let the Go toolchain decide the
-# binary suffix (`go env GOEXE`), so `make build` produces bin/playbrige.exe on
-# Windows and bin/playbrige elsewhere.
+# binary suffix (`go env GOEXE`), so `make build` produces bin/loam.exe on
+# Windows and bin/loam elsewhere.
 
 GO            ?= go
 GOLANGCI_LINT ?= golangci-lint
-BINARY        ?= playbrige
+BINARY        ?= loam
 BIN_DIR       ?= bin
 DIST_DIR      ?= dist
 PKGS          ?= ./...
@@ -21,7 +21,7 @@ BIN   := $(BIN_DIR)/$(BINARY)$(GOEXE)
 .PHONY: help build install fmt vet lint test test-race cover tidy ci e2e clean
 
 help: ## Show this help.
-	@echo "Playbrige - make targets"
+	@echo "Loam - make targets"
 	@echo ""
 	@echo "  build       Build the CLI into $(BIN)"
 	@echo "  install     go install the CLI into GOBIN"

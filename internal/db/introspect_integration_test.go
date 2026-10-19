@@ -14,11 +14,11 @@ import (
 //
 // Bring one up with:
 //
-//	playbrige up --dir testapp
-//	PLAYBRIGE_TEST_DB=postgres://appuser:apppass@localhost:5433/appdb go test ./internal/db/...
+//	loam up --dir testapp
+//	LOAM_TEST_DB=postgres://appuser:apppass@localhost:5433/appdb go test ./internal/db/...
 //
 // Without it these tests skip, so `go test ./...` stays runnable with no Docker.
-const testDBEnv = "PLAYBRIGE_TEST_DB"
+const testDBEnv = "LOAM_TEST_DB"
 
 // liveSchema connects to the fixture database and introspects it, or skips.
 func liveSchema(t *testing.T) (*Schema, func()) {

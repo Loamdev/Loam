@@ -106,7 +106,7 @@ func TestLoadStateWhenNothingIsRunning(t *testing.T) {
 		t.Fatal("want an error when no environment is recorded")
 	}
 	if !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("error must wrap os.ErrNotExist so the CLI can hint 'run playbrige up'; got %v", err)
+		t.Errorf("error must wrap os.ErrNotExist so the CLI can hint 'run loam up'; got %v", err)
 	}
 }
 

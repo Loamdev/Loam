@@ -54,7 +54,7 @@ func TestWarnFormat(t *testing.T) {
 func TestReadyPrintsExactLine(t *testing.T) {
 	got := capture(t, func() { Ready() })
 
-	want := "  Ready. Run 'playbrige down' when finished.\n"
+	want := "  Ready. Run 'loam down' when finished.\n"
 	if got != want {
 		t.Errorf("Ready() = %q, want %q", got, want)
 	}
@@ -74,7 +74,7 @@ func TestPrintersUseSingleLine(t *testing.T) {
 
 func TestFailfMessageNamesStepErrAndHint(t *testing.T) {
 	cause := errors.New("dial tcp 127.0.0.1:5433: connection refused")
-	hint := "is the postgres service healthy? Run 'playbrige logs db'"
+	hint := "is the postgres service healthy? Run 'loam logs db'"
 
 	err := Failf("Database ready", cause, hint)
 	if err == nil {

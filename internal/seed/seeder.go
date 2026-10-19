@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/shivansh-source/stateful-playwright/internal/db"
+	"github.com/loamdev/loam/internal/db"
 )
 
 // Row-count heuristic constants.
@@ -337,12 +337,12 @@ func seedableColumns(g *Generator, t *db.Table) (columns []db.Column, warnings [
 		// null. Otherwise there is nothing honest to write.
 		if c.HasDefault || c.Nullable {
 			warnings = append(warnings, fmt.Sprintf(
-				"%s.%s has type %s, which Playbrige does not generate; leaving it to the database",
+				"%s.%s has type %s, which Loam does not generate; leaving it to the database",
 				t.Name, c.Name, c.DataType))
 			continue
 		}
 		warnings = append(warnings, fmt.Sprintf(
-			"%s.%s is NOT NULL with type %s and no default; Playbrige cannot generate a value for it",
+			"%s.%s is NOT NULL with type %s and no default; Loam cannot generate a value for it",
 			t.Name, c.Name, c.DataType))
 	}
 	return columns, warnings

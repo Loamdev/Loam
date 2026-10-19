@@ -1,6 +1,6 @@
 // Package env owns the environment: parsing the user's docker-compose.yml,
 // running it under an isolated project name via the docker CLI, and recording
-// what was created in .playbrige/state.json so that a later `down`, `status`,
+// what was created in .loam/state.json so that a later `down`, `status`,
 // or `logs` knows what to act on.
 //
 // Everything here is local. Nothing is uploaded, and no process is left
@@ -16,14 +16,14 @@ import (
 	"time"
 )
 
-// StateDir is the per-project directory holding Playbrige's runtime state.
+// StateDir is the per-project directory holding Loam's runtime state.
 // It is expected to be gitignored.
-const StateDir = ".playbrige"
+const StateDir = ".loam"
 
 // stateFile is the name of the state document inside StateDir.
 const stateFile = "state.json"
 
-// State is what Playbrige remembers about the environment it started. It holds
+// State is what Loam remembers about the environment it started. It holds
 // nothing the user did not already have in their own compose file: the database
 // URL is recorded so `status` and `seed` can reconnect without re-parsing, but
 // it is always masked before being printed (build spec section 1, phase 1).
@@ -93,7 +93,7 @@ func SaveState(dir string, s *State) error {
 
 // LoadState reads dir's state document. When no environment has been started
 // the returned error wraps os.ErrNotExist, so callers can offer the "run
-// playbrige up first" hint with errors.Is.
+// loam up first" hint with errors.Is.
 func LoadState(dir string) (*State, error) {
 	path := StatePath(dir)
 	data, err := os.ReadFile(path) //nolint:gosec // path is derived from the user's own --dir

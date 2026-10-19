@@ -1,5 +1,5 @@
 -- =====================================================================
--- Playbrige test schema (spec section 10)
+-- Loam test schema (spec section 10)
 --
 -- Runs once, as superuser against appdb, from /docker-entrypoint-initdb.d
 -- on the first boot of a fresh pgdata volume.
@@ -36,7 +36,7 @@
 --   * No UNIQUE constraints anywhere. Random generation does not de-duplicate,
 --     and 10k rows of gofakeit.Email() will collide. Adding a UNIQUE index here
 --     would make the acceptance test fail for the wrong reason.
---   * No seed rows. Filling these tables is the whole point of Playbrige.
+--   * No seed rows. Filling these tables is the whole point of Loam.
 --   * gen_random_uuid() is core Postgres since 13 - no pgcrypto, no extension.
 -- =====================================================================
 

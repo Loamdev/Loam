@@ -24,7 +24,7 @@ var out io.Writer = os.Stdout
 var errOut io.Writer = os.Stderr
 
 // readyLine is the exact closing line of a successful run (spec section 7).
-const readyLine = "  Ready. Run 'playbrige down' when finished."
+const readyLine = "  Ready. Run 'loam down' when finished."
 
 // Step reports a completed step, rendered as "  <check> <message>".
 func Step(format string, a ...any) {

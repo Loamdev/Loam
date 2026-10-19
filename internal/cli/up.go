@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/shivansh-source/stateful-playwright/internal/config"
-	"github.com/shivansh-source/stateful-playwright/internal/db"
-	"github.com/shivansh-source/stateful-playwright/internal/env"
+	"github.com/loamdev/loam/internal/config"
+	"github.com/loamdev/loam/internal/db"
+	"github.com/loamdev/loam/internal/env"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +17,7 @@ import (
 // run on a machine has to pull images.
 const composeUpTimeout = 10 * time.Minute
 
-// newUpCmd builds `playbrige up`: start an isolated stack, wait for Postgres,
+// newUpCmd builds `loam up`: start an isolated stack, wait for Postgres,
 // introspect the schema, seed it, and print the summary block.
 func newUpCmd() *cobra.Command {
 	return &cobra.Command{
@@ -52,20 +52,20 @@ func runUp(ctx context.Context) error {
 	if existing, loadErr := env.LoadState(opts.dir); loadErr == nil {
 		return Failf("Starting the environment",
 			fmt.Errorf("environment %s is already recorded in %s", existing.Project, env.StatePath(opts.dir)),
-			"run 'playbrige down' first, or 'playbrige status' to see what is running")
+			"run 'loam down' first, or 'loam status' to see what is running")
 	}
 
 	composeFile := resolveComposeFile(opts.dir, opts.file)
 	compose, err := env.ParseCompose(composeFile)
 	if err != nil {
 		return Failf("Reading "+composeFile, err,
-			"run playbrige from a directory containing a docker-compose.yml, or pass --file")
+			"run loam from a directory containing a docker-compose.yml, or pass --file")
 	}
 
 	cfg, err := config.Load(opts.dir)
 	if err != nil {
 		return Failf("Reading "+config.FileName, err,
-			"fix the file, or delete it: playbrige works with no config at all")
+			"fix the file, or delete it: loam works with no config at all")
 	}
 
 	// Resolved before anything is started, so a repo with no detectable
@@ -73,7 +73,7 @@ func runUp(ctx context.Context) error {
 	dbURL, dbSource, err := resolveDBURL(cfg, compose)
 	if err != nil {
 		return Failf("Finding the database", err,
-			"Playbrige needs one Postgres service publishing port 5432 to the host")
+			"Loam needs one Postgres service publishing port 5432 to the host")
 	}
 
 	if err := env.CheckDocker(ctx); err != nil {
@@ -103,9 +103,9 @@ func runUp(ctx context.Context) error {
 	}
 
 	// From here on, a failure leaves a recorded environment behind on purpose:
-	// the user can inspect it with `playbrige logs` and remove it with
-	// `playbrige down`. Every failure below says so.
-	const recovery = "the environment is still recorded: inspect it with 'playbrige logs', then remove it with 'playbrige down'"
+	// the user can inspect it with `loam logs` and remove it with
+	// `loam down`. Every failure below says so.
+	const recovery = "the environment is still recorded: inspect it with 'loam logs', then remove it with 'loam down'"
 
 	if err := env.Up(ctx, composeFile, project); err != nil {
 		return Failf("Starting the environment", err,
@@ -129,7 +129,7 @@ func runUp(ctx context.Context) error {
 		// An empty public schema is the normal state of a container whose
 		// migrations have not run. Say so plainly rather than reporting success.
 		Warn("the database has no tables in the public schema, so there is nothing to seed")
-		Warn("if this app creates its schema with migrations, run them and then 'playbrige seed'")
+		Warn("if this app creates its schema with migrations, run them and then 'loam seed'")
 	}
 	Step("Schema read: %s, %s", countTables(len(schema.Tables)), countFKs(schema.FKCount()))
 

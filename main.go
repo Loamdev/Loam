@@ -1,4 +1,4 @@
-// Command playbrige is a local-only CLI that boots an isolated Docker Compose
+// Command loam is a local-only CLI that boots an isolated Docker Compose
 // stack, seeds its Postgres database with foreign-key-correct synthetic data,
 // and tears it all down again.
 //
@@ -9,7 +9,7 @@ package main
 import (
 	"os"
 
-	"github.com/shivansh-source/stateful-playwright/internal/cli"
+	"github.com/loamdev/loam/internal/cli"
 )
 
 func main() {

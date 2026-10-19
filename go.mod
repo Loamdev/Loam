@@ -1,4 +1,4 @@
-module github.com/shivansh-source/stateful-playwright
+module github.com/loamdev/loam
 
 go 1.25.0
 

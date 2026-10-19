@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shivansh-source/stateful-playwright/internal/db"
+	"github.com/loamdev/loam/internal/db"
 )
 
 // chainSchema is the fixture-shaped schema: a lookup table three levels up, a

@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// write drops a playbrige.yml into a fresh temp dir and returns the dir.
+// write drops a loam.yml into a fresh temp dir and returns the dir.
 func write(t *testing.T, body string) string {
 	t.Helper()
 	dir := t.TempDir()
@@ -18,7 +18,7 @@ func write(t *testing.T, body string) string {
 
 func TestLoadWithNoFileIsTheHappyPath(t *testing.T) {
 	// The zero-config path is the one that has to work (spec section 12.4):
-	// a missing playbrige.yml is not an error.
+	// a missing loam.yml is not an error.
 	cfg, err := Load(t.TempDir())
 	if err != nil {
 		t.Fatalf("Load with no config returned %v, want nil", err)
