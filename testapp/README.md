@@ -1,10 +1,10 @@
-# testapp — the Playbrige test target
+# testapp — the Loam test target
 
-The fixture from [spec](../docs/PLAYBRIGE_MVP_BUILD_SPEC.md) section 10. It is the
+The fixture from [spec](../docs/BUILD_SPEC.md) section 10. It is the
 "Postgres-backed app you've never seen" that every phase's acceptance test runs
-`playbrige` against, and it is deliberately ordinary: a `docker-compose.yml` with
-a `db` service and a `web` service, no `playbrige.yml`, no migrations tool, no
-seed rows. If `playbrige up` needs anything more than this repo, the zero-config
+`loam` against, and it is deliberately ordinary: a `docker-compose.yml` with
+a `db` service and a `web` service, no `loam.yml`, no migrations tool, no
+seed rows. If `loam up` needs anything more than this repo, the zero-config
 requirement (spec 12.4) is broken.
 
 Two services: `db` (`postgres:16-alpine`, published on host port **5433**,

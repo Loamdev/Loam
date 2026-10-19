@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/shivansh-source/stateful-playwright/internal/env"
+	"github.com/loamdev/loam/internal/env"
 	"github.com/spf13/cobra"
 )
 
@@ -45,8 +45,8 @@ func TestNewRootCmdRegistersExactlySixSubcommands(t *testing.T) {
 func TestRootCommandMetadata(t *testing.T) {
 	root := NewRootCmd()
 
-	if root.Use != "playbrige" {
-		t.Errorf("Use = %q, want %q", root.Use, "playbrige")
+	if root.Use != "loam" {
+		t.Errorf("Use = %q, want %q", root.Use, "loam")
 	}
 	if root.Version != "0.1.0-dev" {
 		t.Errorf("Version = %q, want %q", root.Version, "0.1.0-dev")
@@ -186,8 +186,8 @@ func TestStatusWithNoEnvironmentSucceeds(t *testing.T) {
 	if !strings.Contains(printed, "No environment is running") {
 		t.Errorf("status printed %q, want it to say nothing is running", printed)
 	}
-	if !strings.Contains(printed, "playbrige up") {
-		t.Errorf("status printed %q, want it to suggest 'playbrige up'", printed)
+	if !strings.Contains(printed, "loam up") {
+		t.Errorf("status printed %q, want it to suggest 'loam up'", printed)
 	}
 }
 
@@ -200,8 +200,8 @@ func TestDataCommandsNeedAnEnvironment(t *testing.T) {
 			if err == nil {
 				t.Fatalf("%s with no environment returned nil, want an error", name)
 			}
-			if !strings.Contains(err.Error(), "playbrige up") {
-				t.Errorf("%s error = %q, want it to point at 'playbrige up'", name, err)
+			if !strings.Contains(err.Error(), "loam up") {
+				t.Errorf("%s error = %q, want it to point at 'loam up'", name, err)
 			}
 		})
 	}
@@ -295,8 +295,8 @@ func TestLogsWithNoEnvironmentExplainsItself(t *testing.T) {
 	if err == nil {
 		t.Fatal("logs with no environment returned nil, want an error")
 	}
-	if !strings.Contains(err.Error(), "playbrige up") {
-		t.Errorf("error = %q, want it to point at 'playbrige up'", err)
+	if !strings.Contains(err.Error(), "loam up") {
+		t.Errorf("error = %q, want it to point at 'loam up'", err)
 	}
 }
 
@@ -329,8 +329,8 @@ func TestUpRefusesToStrandAnExistingEnvironment(t *testing.T) {
 	if !strings.Contains(err.Error(), "pb_already_running") {
 		t.Errorf("error = %q, want it to name the running environment", err)
 	}
-	if !strings.Contains(err.Error(), "playbrige down") {
-		t.Errorf("error = %q, want it to hint at 'playbrige down'", err)
+	if !strings.Contains(err.Error(), "loam down") {
+		t.Errorf("error = %q, want it to hint at 'loam down'", err)
 	}
 }
 

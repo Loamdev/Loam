@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/shivansh-source/stateful-playwright/internal/db"
-	"github.com/shivansh-source/stateful-playwright/internal/env"
+	"github.com/loamdev/loam/internal/db"
+	"github.com/loamdev/loam/internal/env"
 	"github.com/spf13/cobra"
 )
 
@@ -13,7 +13,7 @@ import (
 // what most of the work is.
 const resetTimeout = 10 * time.Minute
 
-// newResetCmd builds `playbrige reset`: empty the database and seed it again.
+// newResetCmd builds `loam reset`: empty the database and seed it again.
 func newResetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "reset",

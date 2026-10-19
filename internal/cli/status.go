@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shivansh-source/stateful-playwright/internal/db"
-	"github.com/shivansh-source/stateful-playwright/internal/env"
+	"github.com/loamdev/loam/internal/db"
+	"github.com/loamdev/loam/internal/env"
 	"github.com/spf13/cobra"
 )
 
@@ -18,12 +18,12 @@ import (
 // people run when something already looks wrong.
 const statusTimeout = 45 * time.Second
 
-// newStatusCmd builds `playbrige status`: report on the recorded environment.
+// newStatusCmd builds `loam status`: report on the recorded environment.
 func newStatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show the current environment's project, containers, and URLs",
-		Long: `Read .playbrige/state.json and report the project name, which containers are
+		Long: `Read .loam/state.json and report the project name, which containers are
 running, how many tables and rows the database holds, and the app and database
 URLs (with the password masked).`,
 		Args: cobra.NoArgs,
@@ -44,7 +44,7 @@ func runStatus(ctx context.Context) error {
 		if errors.Is(err, os.ErrNotExist) {
 			// Nothing running is a legitimate answer, not a failure.
 			Step("No environment is running")
-			Resource("Start one with: playbrige up")
+			Resource("Start one with: loam up")
 			return nil
 		}
 		return Failf("Reading the environment state", err,

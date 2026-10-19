@@ -185,7 +185,7 @@ jobs:
           GOARCH: amd64
         run: |
           go build ./...
-          go build -o dist/playbrige-windows-amd64.exe .
+          go build -o dist/loam-windows-amd64.exe .
 
       - name: Cross-compile darwin/arm64
         env:
@@ -193,7 +193,7 @@ jobs:
           GOARCH: arm64
         run: |
           go build ./...
-          go build -o dist/playbrige-darwin-arm64 .
+          go build -o dist/loam-darwin-arm64 .
 
       - name: How to reproduce
         if: failure()
@@ -240,25 +240,25 @@ jobs:
       # fixture schema is applied by hand once Postgres is healthy.
       - name: Load the fixture schema
         run: |
-          psql "$PLAYBRIGE_TEST_DB" -v ON_ERROR_STOP=1 -f testapp/initdb/001_schema.sql
+          psql "$LOAM_TEST_DB" -v ON_ERROR_STOP=1 -f testapp/initdb/001_schema.sql
           echo "Tables created:"
-          psql "$PLAYBRIGE_TEST_DB" -Atc "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY 1"
+          psql "$LOAM_TEST_DB" -Atc "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY 1"
         env:
-          PLAYBRIGE_TEST_DB: postgres://appuser:apppass@localhost:5433/appdb
+          LOAM_TEST_DB: postgres://appuser:apppass@localhost:5433/appdb
 
       - name: Integration tests against the live schema
         run: go test ./... -run 'Fixture|Integration' -v
         env:
-          PLAYBRIGE_TEST_DB: postgres://appuser:apppass@localhost:5433/appdb
+          LOAM_TEST_DB: postgres://appuser:apppass@localhost:5433/appdb
 
       - name: How to reproduce
         if: failure()
         run: |
           echo "::error title=integration::Introspection no longer matches the testapp fixture."
           echo "Reproduce locally:"
-          echo "  playbrige up --dir testapp"
-          echo "  PLAYBRIGE_TEST_DB=postgres://appuser:apppass@localhost:5433/appdb go test ./... -run Fixture -v"
-          echo "  playbrige down --dir testapp"
+          echo "  loam up --dir testapp"
+          echo "  LOAM_TEST_DB=postgres://appuser:apppass@localhost:5433/appdb go test ./... -run Fixture -v"
+          echo "  loam down --dir testapp"
 
   e2e:
     name: end-to-end (real Docker)
@@ -281,7 +281,7 @@ jobs:
           docker version
           docker compose version
 
-      # Pulling up front keeps the timing assertions about Playbrige rather than
+      # Pulling up front keeps the timing assertions about Loam rather than
       # about the runner's network.
       - name: Pre-pull the fixture images
         run: |
@@ -289,7 +289,7 @@ jobs:
           docker pull nginx:alpine
 
       - name: Build the CLI
-        run: go build -o bin/playbrige .
+        run: go build -o bin/loam .
 
       # This is the build spec's section 11 definition of done: one command to a
       # seeded app, one command back to nothing left behind.
@@ -307,7 +307,7 @@ jobs:
           docker volume ls --filter "name=pb_" --format '{{.Name}}'
           leftovers=$(docker ps -aq --filter "name=pb_"; docker volume ls -q --filter "name=pb_")
           if [ -n "$leftovers" ]; then
-            echo "::error title=teardown::playbrige down left resources behind."
+            echo "::error title=teardown::loam down left resources behind."
             exit 1
           fi
           echo "Clean: no leftover containers, networks, or volumes."
@@ -319,4 +319,4 @@ jobs:
           echo "Reproduce locally (needs Docker running):"
           echo "  go test -tags=e2e -v -timeout 15m ."
           echo "Or drive it by hand:"
-          echo "  playbrige up --dir testapp && playbrige status && playbrige down --dir testapp"
+          echo "  loam up --dir testapp && loam status && loam down --dir testapp"

@@ -1,4 +1,4 @@
-# golangci-lint configuration for Playbrige.
+# golangci-lint configuration for Loam.
 #
 # Pinned toolchain: golangci-lint v2.x (see GOLANGCI_LINT_VERSION in
 # .github/workflows/ci.yml). The v2 schema is required because no golangci-lint

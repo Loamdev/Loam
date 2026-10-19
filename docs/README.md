@@ -1,13 +1,13 @@
-# Playbrige documentation
+# Loam documentation
 
 Start wherever matches what you need.
 
 | I want to… | Read |
 |---|---|
-| Use the tool | [`../README.md`](../README.md) — install, the six commands, the flags, `playbrige.yml` |
+| Use the tool | [`../README.md`](../README.md) — install, the six commands, the flags, `loam.yml` |
 | Understand how the code works, before changing it | **[`ARCHITECTURE.md`](ARCHITECTURE.md)** |
 | Set up, run the tests, open a PR | **[`CONTRIBUTING.md`](CONTRIBUTING.md)** |
-| Know what the tool is contractually required to do | [`PLAYBRIGE_MVP_BUILD_SPEC.md`](PLAYBRIGE_MVP_BUILD_SPEC.md) |
+| Know what the tool is contractually required to do | [`BUILD_SPEC.md`](BUILD_SPEC.md) |
 | Know why something was built this way, or what broke on the way | [`BUILD_SESSION_LOG.md`](BUILD_SESSION_LOG.md) |
 | Know what was deliberately left out, and why | [`../LATER.md`](../LATER.md) |
 | Understand the test fixture | [`../testapp/README.md`](../testapp/README.md) |
@@ -17,11 +17,11 @@ Start wherever matches what you need.
 ## Reading order for a new contributor
 
 1. **[`../README.md`](../README.md)** — what the tool does. Then actually run it:
-   `make build && ./bin/playbrige up --dir testapp`, look around the database, `down`.
+   `make build && ./bin/loam up --dir testapp`, look around the database, `down`.
 2. **[`ARCHITECTURE.md`](ARCHITECTURE.md)** — the `up` pipeline, the package map, and the seeding
    algorithm. The *Invariants* table is the short version of what must never break.
 3. **[`CONTRIBUTING.md`](CONTRIBUTING.md)** — the three test tiers and the recipes for common changes.
-4. **[`PLAYBRIGE_MVP_BUILD_SPEC.md`](PLAYBRIGE_MVP_BUILD_SPEC.md)** §12 (non-negotiables) and §13
+4. **[`BUILD_SPEC.md`](BUILD_SPEC.md)** §12 (non-negotiables) and §13
    (clarifications) — the rules, and the seven ambiguities that were resolved during the build.
 
 Everything else is reference.
@@ -30,7 +30,7 @@ Everything else is reference.
 
 ## The four documents, and what each is for
 
-**`PLAYBRIGE_MVP_BUILD_SPEC.md`** is the contract. It defines required behaviour, what is
+**`BUILD_SPEC.md`** is the contract. It defines required behaviour, what is
 deliberately out of scope, and the acceptance test for each phase. §13 was added afterwards, recording
 the seven questions the original spec left open and how each was answered.
 
@@ -50,7 +50,7 @@ tripped things up. Read it when you want to know *why*, or when something feels 
 
 ## The very short version
 
-Playbrige runs a repo's `docker-compose.yml` as an isolated throwaway stack, reads the Postgres
+Loam runs a repo's `docker-compose.yml` as an isolated throwaway stack, reads the Postgres
 schema, and bulk-loads foreign-key-correct synthetic data with `COPY`. One command up, one command
 gone.
 

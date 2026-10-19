@@ -1,20 +1,20 @@
 # Architecture
 
-How Playbrige works, and why it is shaped this way. Read this before changing anything in
+How Loam works, and why it is shaped this way. Read this before changing anything in
 `internal/`.
 
 If you only want to *use* the tool, [`README.md`](../README.md) is enough. If you want to know what
 was built when and which bugs were found on the way, see
 [`BUILD_SESSION_LOG.md`](BUILD_SESSION_LOG.md). The behavioural contract is
-[`PLAYBRIGE_MVP_BUILD_SPEC.md`](PLAYBRIGE_MVP_BUILD_SPEC.md).
+[`BUILD_SPEC.md`](BUILD_SPEC.md).
 
 ---
 
 ## The idea in one paragraph
 
-A developer clones a Postgres-backed app they have never seen, types `playbrige up`, and about ten
+A developer clones a Postgres-backed app they have never seen, types `loam up`, and about ten
 seconds later has the app running against a database full of data that looks like it came from real
-customers — where every foreign key points at a row that actually exists. `playbrige down` removes
+customers — where every foreign key points at a row that actually exists. `loam down` removes
 the containers, networks, and volumes. Everything runs locally against the developer's own Docker and
 their own `docker-compose.yml`. There is no server, no account, and no daemon.
 
@@ -27,9 +27,9 @@ their own `docker-compose.yml`. There is no server, no account, and no daemon.
 ```mermaid
 flowchart TD
     A["cheap local checks<br/>dir exists, no env already recorded"] --> B["parse docker-compose.yml<br/>internal/env"]
-    B --> C["load playbrige.yml if present<br/>internal/config"]
+    B --> C["load loam.yml if present<br/>internal/config"]
     C --> D["resolve the database URL<br/>--db-url → config → compose"]
-    D --> E["write .playbrige/state.json<br/>BEFORE anything can fail"]
+    D --> E["write .loam/state.json<br/>BEFORE anything can fail"]
     E --> F["docker compose up -d<br/>under an isolated project name"]
     F --> G["connect + wait for Postgres<br/>30s retry loop"]
     G --> H["introspect the schema<br/>columns, PKs, FKs, allowed values"]
@@ -45,7 +45,7 @@ Two orderings in that diagram are deliberate and load-bearing:
 instead of after a Docker round trip. Resolving the database URL is also done up front, so a repo with
 no detectable Postgres fails *before* any container is started.
 
-**State is written before anything can fail.** `.playbrige/state.json` is the only record of which
+**State is written before anything can fail.** `.loam/state.json` is the only record of which
 compose project name owns these containers. `docker compose up` creates the network and volumes even
 when it then fails to start a service, so writing state afterwards would strand whatever it created
 and leave `down` reporting *"No environment is running"* over a live stack. This was a real bug; see
@@ -62,7 +62,7 @@ internal/
   env/      compose parsing, the Docker CLI, the state file
   db/       connect, introspect, order
   seed/     generate and bulk load — the core
-  config/   the optional playbrige.yml
+  config/   the optional loam.yml
 testapp/    the fixture CI runs against
 e2e_test.go the spec §11 definition of done (build-tagged)
 ```
@@ -265,7 +265,7 @@ orders.status:  paid 46.7%  shipped 28.9%  pending 16.1%  cancelled 5.6%  refund
 that a fixed seed would still produce different data every run and reproducing a bug from a seed
 would be impossible.
 
-Precedence when resolving a column's value set: an explicit `playbrige.yml` distribution → the
+Precedence when resolving a column's value set: an explicit `loam.yml` distribution → the
 column's real permitted values → the generic status profile. A configured distribution is
 **intersected** with the permitted values, because a value the CHECK rejects fails the entire COPY
 rather than one row.
@@ -341,7 +341,7 @@ ports cannot**, so two stacks of the *same* repo still collide on the port.
 | Tier | Needs | Run with |
 |---|---|---|
 | Unit | nothing | `go test ./...` |
-| Integration | a live Postgres with the fixture schema | `PLAYBRIGE_TEST_DB=… go test ./... -run Fixture` |
+| Integration | a live Postgres with the fixture schema | `LOAM_TEST_DB=… go test ./... -run Fixture` |
 | End-to-end | Docker | `go test -tags=e2e -timeout 15m .` |
 
 The live tiers are gated (env var, build tag) so `go test ./...` never needs Docker — but CI runs all
@@ -360,7 +360,7 @@ random generation does not de-duplicate, so one would fail the acceptance test f
 Do not "fix" these without reading the reasoning first — all of it is in
 [`../LATER.md`](../LATER.md), and the scope boundaries are spec §2.
 
-- Playbrige does **not** run your migrations. It seeds whatever is already in `public`. An empty
+- Loam does **not** run your migrations. It seeds whatever is already in `public`. An empty
   schema is normal and non-fatal; the workflow is `up` → run migrations → `seed`.
 - Unique constraints are not introspected. `email`/`sku`/`code` get a per-row counter, and
   `fitUnique` surrenders the padding, the domain, then the prefix before it ever trims the counter —

@@ -17,7 +17,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Service is one service of a compose file, reduced to the fields Playbrige
+// Service is one service of a compose file, reduced to the fields Loam
 // needs: which image it runs, its environment, and its published ports.
 type Service struct {
 	// Name is the service key in the compose file.
@@ -97,7 +97,7 @@ var hostPortPattern = regexp.MustCompile(`^(?:(\[[^\]]+\]|[0-9.]+):)?(\d+):(\d+)
 // HostPort returns the host port that publishes the given container port.
 // It reports false when the container port is not published, which includes the
 // short form that names only a container port (Docker then picks a random host
-// port that Playbrige cannot predict).
+// port that Loam cannot predict).
 func (s Service) HostPort(containerPort string) (string, bool) {
 	for _, p := range s.Ports {
 		m := hostPortPattern.FindStringSubmatch(strings.TrimSpace(p))
@@ -255,7 +255,7 @@ func CheckDocker(ctx context.Context) error {
 	return nil
 }
 
-// dockerBinary is the CLI Playbrige shells out to. The build spec (section 3)
+// dockerBinary is the CLI Loam shells out to. The build spec (section 3)
 // deliberately chooses the CLI over the Docker SDK for the MVP.
 const dockerBinary = "docker"
 
@@ -294,7 +294,7 @@ func dockerLines(ctx context.Context, args ...string) ([]string, error) {
 // YAML shapes
 // ---------------------------------------------------------------------------
 
-// rawService mirrors the subset of a compose service Playbrige reads.
+// rawService mirrors the subset of a compose service Loam reads.
 type rawService struct {
 	Image       string      `yaml:"image"`
 	Environment environment `yaml:"environment"`
@@ -405,7 +405,7 @@ func (p *ports) UnmarshalYAML(node *yaml.Node) error {
 // ${VAR} interpolation
 // ---------------------------------------------------------------------------
 
-// variablePattern matches the compose interpolation forms Playbrige supports:
+// variablePattern matches the compose interpolation forms Loam supports:
 // $VAR, ${VAR}, ${VAR:-default} and ${VAR-default}.
 var variablePattern = regexp.MustCompile(`\$(?:(\w+)|\{(\w+)(?::?-([^}]*))?\})`)
 

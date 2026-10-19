@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shivansh-source/stateful-playwright/internal/config"
-	"github.com/shivansh-source/stateful-playwright/internal/db"
+	"github.com/loamdev/loam/internal/config"
+	"github.com/loamdev/loam/internal/db"
 )
 
 // gen returns a generator with a fixed seed.

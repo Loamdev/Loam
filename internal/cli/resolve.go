@@ -3,8 +3,8 @@ package cli
 import (
 	"fmt"
 
-	"github.com/shivansh-source/stateful-playwright/internal/config"
-	"github.com/shivansh-source/stateful-playwright/internal/env"
+	"github.com/loamdev/loam/internal/config"
+	"github.com/loamdev/loam/internal/env"
 )
 
 // resolveDBURL works out which Postgres to talk to.
@@ -12,7 +12,7 @@ import (
 // Precedence, highest first:
 //
 //  1. --db-url, because a flag the user typed on this run must win;
-//  2. database.url in playbrige.yml, the escape hatch for repos auto-detection
+//  2. database.url in loam.yml, the escape hatch for repos auto-detection
 //     cannot read;
 //  3. the compose file itself, which is the zero-config path and the one that
 //     has to work without any of the above (build spec section 12.4).

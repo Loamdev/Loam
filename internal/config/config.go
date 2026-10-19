@@ -1,4 +1,4 @@
-// Package config loads the optional playbrige.yml.
+// Package config loads the optional loam.yml.
 //
 // It is an escape hatch, never a requirement: the zero-config path is the one
 // that has to work (build spec section 12.4). A missing file is not an error,
@@ -14,8 +14,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// FileName is the optional config file Playbrige looks for in the project directory.
-const FileName = "playbrige.yml"
+// FileName is the optional config file Loam looks for in the project directory.
+const FileName = "loam.yml"
 
 // DefaultRows is how many rows a leaf table gets when nothing overrides it.
 const DefaultRows = 10000
@@ -36,7 +36,7 @@ type SeedConfig struct {
 	Distributions map[string]Distribution `yaml:"distributions"`
 }
 
-// Config is the parsed playbrige.yml. Every field is optional.
+// Config is the parsed loam.yml. Every field is optional.
 type Config struct {
 	// Database overrides connection auto-detection.
 	Database struct {
@@ -45,7 +45,7 @@ type Config struct {
 		URL string `yaml:"url"`
 	} `yaml:"database"`
 
-	// App overrides the application URL Playbrige prints.
+	// App overrides the application URL Loam prints.
 	App struct {
 		// URL is what to print as the App URL.
 		URL string `yaml:"url"`
@@ -55,12 +55,12 @@ type Config struct {
 	Seed SeedConfig `yaml:"seed"`
 }
 
-// Default returns the configuration used when there is no playbrige.yml.
+// Default returns the configuration used when there is no loam.yml.
 func Default() *Config {
 	return &Config{Seed: SeedConfig{DefaultRows: DefaultRows}}
 }
 
-// Load reads dir/playbrige.yml.
+// Load reads dir/loam.yml.
 //
 // A missing file yields the defaults and a nil error: that is the happy path,
 // not a failure. A file that exists but cannot be parsed IS an error, because

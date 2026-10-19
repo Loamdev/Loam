@@ -8,20 +8,20 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shivansh-source/stateful-playwright/internal/env"
+	"github.com/loamdev/loam/internal/env"
 	"github.com/spf13/cobra"
 )
 
 // composeDownTimeout bounds `docker compose down`.
 const composeDownTimeout = 3 * time.Minute
 
-// newDownCmd builds `playbrige down`: tear the environment down completely.
+// newDownCmd builds `loam down`: tear the environment down completely.
 func newDownCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "down",
 		Short: "Tear down the environment and remove its volumes",
 		Long: `Stop and remove the containers, networks, and volumes of the environment
-recorded in .playbrige/state.json, then forget that state. Nothing is left
+recorded in .loam/state.json, then forget that state. Nothing is left
 behind on the machine.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {

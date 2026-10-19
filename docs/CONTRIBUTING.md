@@ -1,4 +1,4 @@
-# Working on Playbrige
+# Working on Loam
 
 Practical guide to developing this repo. Read [`ARCHITECTURE.md`](ARCHITECTURE.md) first if you are
 about to change anything in `internal/` — it explains why the code is shaped the way it is, and
@@ -19,14 +19,14 @@ You need:
   ```
 
 ```sh
-git clone https://github.com/shivansh-source/stateful-playwright
-cd stateful-playwright
-make build          # produces bin/playbrige
+git clone https://github.com/loamdev/loam
+cd loam
+make build          # produces bin/loam
 ```
 
-The module path is `github.com/shivansh-source/stateful-playwright` but the binary is `playbrige`, so
+The module path is `github.com/loamdev/loam` but the binary is `loam`, so
 a bare `go install` gives you a binary named after the module. Use `make build`, or
-`go build -o bin/playbrige .`.
+`go build -o bin/loam .`.
 
 ---
 
@@ -43,12 +43,12 @@ go test ./...
 ### Integration — a live Postgres holding the fixture schema
 
 ```sh
-./bin/playbrige up --dir testapp
-PLAYBRIGE_TEST_DB=postgres://appuser:apppass@localhost:5433/appdb go test ./... -run Fixture -v
-./bin/playbrige down --dir testapp
+./bin/loam up --dir testapp
+LOAM_TEST_DB=postgres://appuser:apppass@localhost:5433/appdb go test ./... -run Fixture -v
+./bin/loam down --dir testapp
 ```
 
-These skip silently when `PLAYBRIGE_TEST_DB` is unset. They assert the things that matter most:
+These skip silently when `LOAM_TEST_DB` is unset. They assert the things that matter most:
 every foreign key checked with a real `LEFT JOIN`, the µs/row performance budget, that the app can
 `INSERT` after seeding, and that the same seed reproduces byte-identical data.
 

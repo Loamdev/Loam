@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/shivansh-source/stateful-playwright/internal/config"
+	"github.com/loamdev/loam/internal/config"
 )
 
 // DefaultStatus is the fallback mix for a status-like column whose permitted

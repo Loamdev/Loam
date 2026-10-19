@@ -6,22 +6,22 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/shivansh-source/stateful-playwright/internal/config"
-	"github.com/shivansh-source/stateful-playwright/internal/db"
-	"github.com/shivansh-source/stateful-playwright/internal/env"
-	"github.com/shivansh-source/stateful-playwright/internal/seed"
+	"github.com/loamdev/loam/internal/config"
+	"github.com/loamdev/loam/internal/db"
+	"github.com/loamdev/loam/internal/env"
+	"github.com/loamdev/loam/internal/seed"
 	"github.com/spf13/cobra"
 )
 
-// seedOptions holds the flags specific to `playbrige seed`.
+// seedOptions holds the flags specific to `loam seed`.
 type seedOptions struct {
 	truncate bool // --truncate: empty every table before generating rows
 }
 
-// seedOpts is the flag state for `playbrige seed`, rebound on every NewRootCmd.
+// seedOpts is the flag state for `loam seed`, rebound on every NewRootCmd.
 var seedOpts seedOptions
 
-// newSeedCmd builds `playbrige seed`: seed the already-running environment.
+// newSeedCmd builds `loam seed`: seed the already-running environment.
 func newSeedCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "seed",
@@ -57,7 +57,7 @@ func seedEnvironment(ctx context.Context, pool *pgxpool.Pool, schema *db.Schema,
 	result, err := seed.Seed(ctx, pool, schema, seedOptionsFrom(cfg, allowed))
 	if err != nil {
 		return nil, Failf("Seeding", err,
-			"run 'playbrige logs db' to see what Postgres rejected; the environment is still recorded, remove it with 'playbrige down'")
+			"run 'loam logs db' to see what Postgres rejected; the environment is still recorded, remove it with 'loam down'")
 	}
 	for _, w := range result.Warnings {
 		Warn("%s", w)

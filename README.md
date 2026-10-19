@@ -1,4 +1,4 @@
-# Playbrige
+# Loam
 
 Type one command in a repo that has a `docker-compose.yml` with Postgres in it, and about half a
 minute later the app is running in front of you with a database full of data that looks like it came
@@ -6,7 +6,7 @@ from real customers — thousands of users with plausible names and emails, orde
 users, line items that belong to those orders, a status column where "churned" is rare instead of
 exactly one-quarter of the rows. Every foreign key points at a row that actually exists. When you are
 finished, one more command and it is all gone: containers, networks, volumes, nothing left behind.
-Playbrige is a single Go binary that does this locally against your own Docker and your own compose
+Loam is a single Go binary that does this locally against your own Docker and your own compose
 file — it starts an isolated copy of your stack, reads your schema, works out which tables are
 parents, and bulk-loads FK-correct synthetic data with Postgres `COPY`. Targets: the whole cycle in
 under ~30 seconds, ~10,000 rows seeded in under ~2 seconds.
@@ -18,12 +18,12 @@ Nothing leaves your machine. There is no server, no cloud, no account, no daemon
 ## Status
 
 **MVP complete.** All seven phases are in, each verified against its own acceptance test in
-[`docs/PLAYBRIGE_MVP_BUILD_SPEC.md`](docs/PLAYBRIGE_MVP_BUILD_SPEC.md), which is the source of truth
-for behavior. `playbrige up` on a Compose + Postgres repo brings the stack up, seeds it with
-foreign-key-correct data, and prints where to reach it; `playbrige down` leaves nothing behind.
+[`docs/BUILD_SPEC.md`](docs/BUILD_SPEC.md), which is the source of truth
+for behavior. `loam up` on a Compose + Postgres repo brings the stack up, seeds it with
+foreign-key-correct data, and prints where to reach it; `loam down` leaves nothing behind.
 
 - [x] **Phase 0** — Skeleton CLI: cobra root, six subcommands, package skeletons, CI, fixture app
-- [x] **Phase 1** — Compose up/down with isolation (unique project name, `.playbrige/state.json`)
+- [x] **Phase 1** — Compose up/down with isolation (unique project name, `.loam/state.json`)
 - [x] **Phase 2** — Connect to Postgres (auto-detect from compose, readiness retry loop)
 - [x] **Phase 3** — Schema introspection (tables, columns, types, PKs, FKs)
 - [x] **Phase 4** — Topological ordering (parents before children, cycle breaking)
@@ -36,33 +36,33 @@ Each phase was one branch and one PR, merged only once its acceptance test passe
 
 ## Install / build
 
-The module path is `github.com/shivansh-source/stateful-playwright`, but the binary is `playbrige`.
+The module path is `github.com/loamdev/loam`, but the binary is `loam`.
 The root package is `main`, so a bare `go install` produces a binary named after the module — either
 rename it, or use the Makefile, which names it correctly:
 
 ```sh
-# Makefile route (recommended) — produces ./bin/playbrige
+# Makefile route (recommended) — produces ./bin/loam
 make build
 
 # same thing by hand
-go build -o bin/playbrige .
+go build -o bin/loam .
 
-# go install route — installs $GOBIN/stateful-playwright, rename it to playbrige
-go install github.com/shivansh-source/stateful-playwright@latest
+# go install route — installs $GOBIN/loam, rename it to loam
+go install github.com/loamdev/loam@latest
 ```
 
-Put `bin/` on your `PATH` or invoke `./bin/playbrige` directly. While developing, `go run . up` works
+Put `bin/` on your `PATH` or invoke `./bin/loam` directly. While developing, `go run . up` works
 too.
 
 ## Usage
 
 ```sh
-playbrige up          # start an isolated stack, wait for Postgres, seed it, print the summary
-playbrige down        # tear the stack down (containers, networks, volumes) and clear state
-playbrige status      # what is running: project, services, tables, rows seeded, URLs
-playbrige reset       # truncate every table and re-seed, same stack
-playbrige seed        # seed only, against a stack that is already up
-playbrige logs [svc]  # stream container logs (passthrough to docker compose logs)
+loam up          # start an isolated stack, wait for Postgres, seed it, print the summary
+loam down        # tear the stack down (containers, networks, volumes) and clear state
+loam status      # what is running: project, services, tables, rows seeded, URLs
+loam reset       # truncate every table and re-seed, same stack
+loam seed        # seed only, against a stack that is already up
+loam logs [svc]  # stream container logs (passthrough to docker compose logs)
 ```
 
 Global flags, valid on every command:
@@ -70,13 +70,13 @@ Global flags, valid on every command:
 | Flag | Default | Meaning |
 |---|---|---|
 | `--file`, `-f` | `docker-compose.yml` | Compose file to run |
-| `--dir` | `.` | Project directory — where `.playbrige/` and `playbrige.yml` live |
+| `--dir` | `.` | Project directory — where `.loam/` and `loam.yml` live |
 | `--db-url` | auto-detected | Override the Postgres connection string |
 | `--rows` | `10000` | Default rows per table, before per-table heuristics |
 
 `seed` additionally takes `--truncate`, to empty the tables before loading new rows.
 
-### What `playbrige up` prints on success
+### What `loam up` prints on success
 
 ```
   ✔ Environment pb_1788263615_dbd4a91c started (2 services)
@@ -85,30 +85,30 @@ Global flags, valid on every command:
   ✔ Seeded 46,800 rows across 9 tables in 1.2s
   → App:      http://localhost:8080
   → DB:       postgres://appuser:****@localhost:5433/appdb   (password masked)
-  Ready. Run 'playbrige down' when finished.
+  Ready. Run 'loam down' when finished.
 ```
 
 Passwords are masked in every printed URL. On failure you get the step that broke plus something
-actionable, e.g. `Database not ready after 30s — is the postgres service healthy? Run 'playbrige logs db'`.
+actionable, e.g. `Database not ready after 30s — is the postgres service healthy? Run 'loam logs db'`.
 
 ## Requirements
 
 | | |
 |---|---|
 | Go | 1.25 or newer — to build; not needed to run the binary |
-| Docker | with Compose v2. Playbrige shells out to `docker compose`, not `docker-compose` |
+| Docker | with Compose v2. Loam shells out to `docker compose`, not `docker-compose` |
 | Your repo | a `docker-compose.yml` with a Postgres service that publishes a host port |
 
 Developed on Windows, CI runs ubuntu-latest; the tool is OS-portable.
 
 ## Zero config
 
-The happy path takes no configuration at all. Playbrige reads your compose file, finds the service
+The happy path takes no configuration at all. Loam reads your compose file, finds the service
 whose image looks like Postgres, pulls `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` out of
 its environment, reads the published host port out of its `ports` mapping, and connects. Row counts
 and value distributions have sane defaults.
 
-`playbrige.yml` in the project directory is the escape hatch, for what auto-detection cannot work out
+`loam.yml` in the project directory is the escape hatch, for what auto-detection cannot work out
 or when you want different volumes of data. Every field is optional and a missing file is not an
 error:
 
@@ -142,10 +142,10 @@ PK/FK pair. See [`testapp/README.md`](testapp/README.md).
 ```sh
 make build
 cd testapp
-../bin/playbrige up
+../bin/loam up
 psql "postgres://appuser:apppass@localhost:5433/appdb" -c 'table orders limit 5;'
-../bin/playbrige status
-../bin/playbrige down
+../bin/loam status
+../bin/loam down
 ```
 
 On a warm machine that whole cycle takes about 15 seconds and seeds roughly 47,000 rows.
@@ -172,7 +172,7 @@ full parking lot and the reasoning.
 |---|---|
 | Understand how the code works, before changing it | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
 | Set up, run the tests, open a PR | [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md) |
-| Know what the tool is required to do | [`docs/PLAYBRIGE_MVP_BUILD_SPEC.md`](docs/PLAYBRIGE_MVP_BUILD_SPEC.md) |
+| Know what the tool is required to do | [`docs/BUILD_SPEC.md`](docs/BUILD_SPEC.md) |
 | Know why something was built this way | [`docs/BUILD_SESSION_LOG.md`](docs/BUILD_SESSION_LOG.md) |
 | Know what was deliberately left out | [`LATER.md`](LATER.md) |
 
@@ -189,7 +189,7 @@ Full guide in [`docs/CONTRIBUTING.md`](docs/CONTRIBUTING.md). The short version:
 
 ```sh
 go test ./...                                        # unit
-PLAYBRIGE_TEST_DB=… go test ./... -run Fixture       # integration, needs a live Postgres
+LOAM_TEST_DB=… go test ./... -run Fixture       # integration, needs a live Postgres
 go test -tags=e2e -timeout 15m .                     # end-to-end, needs Docker
 make ci                                              # fmt + vet + test + build
 ```

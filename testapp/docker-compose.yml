@@ -1,7 +1,7 @@
-# Playbrige test target (spec section 10).
+# Loam test target (spec section 10).
 #
 # This is the fixture every phase's acceptance test runs against. It is a plain,
-# boring Compose + Postgres repo on purpose: `playbrige up` must work here with
+# boring Compose + Postgres repo on purpose: `loam up` must work here with
 # zero config.
 #
 # Deliberate properties (do not "clean these up"):

@@ -28,7 +28,7 @@ const wholeCycleBudget = 90 * time.Second
 func binary(t *testing.T) string {
 	t.Helper()
 
-	name := "playbrige-e2e"
+	name := "loam-e2e"
 	if os.PathSeparator == '\\' {
 		name += ".exe"
 	}
@@ -42,7 +42,7 @@ func binary(t *testing.T) string {
 }
 
 // fixture copies testapp/ somewhere disposable, so the repo is never dirtied by
-// a .playbrige/ directory and each test gets its own environment.
+// a .loam/ directory and each test gets its own environment.
 func fixture(t *testing.T) string {
 	t.Helper()
 
@@ -75,13 +75,13 @@ func copyTree(src, dst string) error {
 	})
 }
 
-// playbrige runs the CLI and returns its combined output.
-func playbrige(t *testing.T, bin, dir string, args ...string) (string, error) {
+// loam runs the CLI and returns its combined output.
+func loam(t *testing.T, bin, dir string, args ...string) (string, error) {
 	t.Helper()
 
 	cmd := exec.Command(bin, append(args, "--dir", dir)...) //nolint:gosec // test-built binary
 	out, err := cmd.CombinedOutput()
-	t.Logf("$ playbrige %s\n%s", strings.Join(args, " "), out)
+	t.Logf("$ loam %s\n%s", strings.Join(args, " "), out)
 	return string(out), err
 }
 
@@ -96,13 +96,13 @@ func TestEndToEndDefinitionOfDone(t *testing.T) {
 	// Always tear down, even if an assertion fails, so a failed run never leaves
 	// containers on the machine.
 	t.Cleanup(func() {
-		if _, err := playbrige(t, bin, dir, "down"); err != nil {
+		if _, err := loam(t, bin, dir, "down"); err != nil {
 			t.Logf("cleanup down failed: %v", err)
 		}
 	})
 
 	started := time.Now()
-	out, err := playbrige(t, bin, dir, "up")
+	out, err := loam(t, bin, dir, "up")
 	elapsed := time.Since(started)
 	if err != nil {
 		t.Fatalf("up failed: %v", err)
@@ -116,7 +116,7 @@ func TestEndToEndDefinitionOfDone(t *testing.T) {
 		"Seeded ", " rows across 9 tables in ",
 		"App:", "http://localhost:8080",
 		"DB:", "postgres://appuser:****@localhost:5433/appdb",
-		"Ready. Run 'playbrige down' when finished.",
+		"Ready. Run 'loam down' when finished.",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("up output is missing %q", want)
@@ -144,7 +144,7 @@ func TestEndToEndDefinitionOfDone(t *testing.T) {
 	}
 
 	// status must describe the live environment.
-	statusOut, err := playbrige(t, bin, dir, "status")
+	statusOut, err := loam(t, bin, dir, "status")
 	if err != nil {
 		t.Fatalf("status failed: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestEndToEndDefinitionOfDone(t *testing.T) {
 	}
 
 	// reset must empty and refill without restarting a container.
-	resetOut, err := playbrige(t, bin, dir, "reset")
+	resetOut, err := loam(t, bin, dir, "reset")
 	if err != nil {
 		t.Fatalf("reset failed: %v", err)
 	}
@@ -169,12 +169,12 @@ func TestEndToEndDefinitionOfDone(t *testing.T) {
 	}
 
 	// logs is a passthrough and must not error.
-	if _, err := playbrige(t, bin, dir, "logs", "db"); err != nil {
+	if _, err := loam(t, bin, dir, "logs", "db"); err != nil {
 		t.Errorf("logs failed: %v", err)
 	}
 
 	// down must leave nothing behind (section 6 phase 1 acceptance).
-	downOut, err := playbrige(t, bin, dir, "down")
+	downOut, err := loam(t, bin, dir, "down")
 	if err != nil {
 		t.Fatalf("down failed: %v", err)
 	}
@@ -205,10 +205,10 @@ func TestEndToEndDefinitionOfDone(t *testing.T) {
 	}
 
 	// The state file must be gone, and a second down must be harmless.
-	if _, err := os.Stat(filepath.Join(dir, ".playbrige", "state.json")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, ".loam", "state.json")); !os.IsNotExist(err) {
 		t.Errorf("down left the state file behind: %v", err)
 	}
-	if _, err := playbrige(t, bin, dir, "down"); err != nil {
+	if _, err := loam(t, bin, dir, "down"); err != nil {
 		t.Errorf("a second down should be harmless, got %v", err)
 	}
 }

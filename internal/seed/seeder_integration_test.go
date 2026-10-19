@@ -8,17 +8,17 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/shivansh-source/stateful-playwright/internal/db"
+	"github.com/loamdev/loam/internal/db"
 )
 
 // testDBEnv points the integration tests at a live Postgres holding the
 // testapp/ fixture schema:
 //
-//	playbrige up --dir testapp
-//	PLAYBRIGE_TEST_DB=postgres://appuser:apppass@localhost:5433/appdb go test ./internal/seed/...
+//	loam up --dir testapp
+//	LOAM_TEST_DB=postgres://appuser:apppass@localhost:5433/appdb go test ./internal/seed/...
 //
 // Without it these tests skip, so `go test ./...` needs no Docker.
-const testDBEnv = "PLAYBRIGE_TEST_DB"
+const testDBEnv = "LOAM_TEST_DB"
 
 // liveFixture connects, introspects, orders, and empties the fixture database,
 // leaving it ready to seed.

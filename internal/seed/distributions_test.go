@@ -4,7 +4,7 @@ import (
 	"math/rand"
 	"testing"
 
-	"github.com/shivansh-source/stateful-playwright/internal/config"
+	"github.com/loamdev/loam/internal/config"
 )
 
 func TestPickIsDeterministicForASeed(t *testing.T) {
@@ -52,7 +52,7 @@ func TestPickRespectsWeights(t *testing.T) {
 }
 
 func TestPickSkipsZeroWeightValues(t *testing.T) {
-	// Weight 0 is how a user excludes a value in playbrige.yml.
+	// Weight 0 is how a user excludes a value in loam.yml.
 	r := rand.New(rand.NewSource(7)) //nolint:gosec // test
 	d := config.Distribution{"keep": 1, "drop": 0}
 
