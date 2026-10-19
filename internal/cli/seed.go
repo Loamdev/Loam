@@ -25,9 +25,15 @@ var seedOpts seedOptions
 func newSeedCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "seed",
-		Short: "Seed the running environment's database",
-		Long: `Generate synthetic, foreign-key-correct rows into the database of an
-environment that is already up. Rows are appended unless --truncate is given.`,
+		Short: "Fill a Postgres database with realistic, foreign-key-correct data",
+		Long: `Generate synthetic rows whose foreign keys all point at rows that exist, and
+bulk-load them with COPY. Rows are appended unless --truncate is given.
+
+With no flags, seed uses the environment 'loam up' created. Pass --db-url to
+seed any reachable Postgres instead - one running in Kubernetes, on RDS, or
+started by hand - with no compose file and no loam environment:
+
+  loam seed --db-url postgres://user:pass@localhost:5432/mydb --rows 500`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			return runSeed(cmd.Context())
@@ -163,14 +169,17 @@ func runSeed(ctx context.Context) error {
 	}
 
 	// Keep the recorded row count honest: appending adds to it, truncating
-	// replaces it.
-	if seedOpts.truncate {
-		live.State.Rows = result.TotalRows
-	} else {
-		live.State.Rows += result.TotalRows
-	}
-	if err := env.SaveState(opts.dir, live.State); err != nil {
-		Warn("could not record the new row count: %v", err)
+	// replaces it. There is nothing to record when the database was named
+	// directly and loam never created an environment for it.
+	if live.State != nil {
+		if seedOpts.truncate {
+			live.State.Rows = result.TotalRows
+		} else {
+			live.State.Rows += result.TotalRows
+		}
+		if err := env.SaveState(opts.dir, live.State); err != nil {
+			Warn("could not record the new row count: %v", err)
+		}
 	}
 	return nil
 }
