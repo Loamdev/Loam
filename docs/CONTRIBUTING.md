@@ -192,6 +192,7 @@ Two traps that cost real time on this repo:
 - [ ] `go mod tidy` leaves `go.mod`/`go.sum` unchanged
 - [ ] Integration tier run if you touched `internal/db` or `internal/seed`
 - [ ] E2E tier run if you touched `internal/cli`, `internal/env`, or the output contract
-- [ ] The §12 non-negotiables still hold: `COPY` not `INSERT`, no password in any output, zero-config
-      path intact, every FK from a real parent row, nothing from spec §2
+- [ ] The rules that must never break still hold: rows go in with `COPY` rather than `INSERT`, no
+      password appears in any output, the tool still works with no `loam.yml`, and every foreign key
+      value comes from a parent row that was really generated
 - [ ] Anything you decided not to do is written down in [`../LATER.md`](../LATER.md) with the reason

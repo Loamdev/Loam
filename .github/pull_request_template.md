@@ -1,33 +1,56 @@
-## Phase
+## What this changes
 
-<!-- Which phase of docs/BUILD_SPEC.md section 6 does this implement? -->
+<!-- One or two sentences in plain language. What is different after this PR? -->
 
-Phase: <!-- 0 Skeleton CLI | 1 Compose up/down | 2 Connect | 3 Introspect | 4 Toposort | 5 Seeding | 6 Wire-up + reset -->
+## Why
 
-## What changed
+<!-- The problem it solves. If it closes an issue, write "Fixes #123". -->
 
-<!-- One paragraph. Link the spec section(s) this PR satisfies. -->
+## How you tested it
 
-## Spec acceptance test
-
-> Quote the acceptance test for this phase from the spec.
-
-- [ ] It passes
-- [ ] It does not pass yet (explain why this PR still lands):
-
-## How it was verified
-
-<!-- Exact commands and their outcome. e.g. `make ci`, `go test ./...`, `loam up` against testapp/, timings. -->
+<!-- The commands you ran and what happened. Paste the output if it helps. -->
 
 ```
+
 ```
 
-## Section 12 non-negotiables
+## Checklist
 
-- [ ] **COPY, not INSERT** - bulk inserts go through `pgx.CopyFrom`; no row-by-row `INSERT` on the seeding path.
-- [ ] **No secrets logged or persisted** - passwords masked in every printed URL (`env.MaskURL`); nothing beyond the user's own compose values is written to `.loam/state.json`.
-- [ ] **Zero-config path intact** - the happy path still works with no `loam.yml`; a missing config file is not an error.
-- [ ] **FK correctness** - every foreign key value is drawn from the parent table's generated PK pool; no invented references; parents seeded before children.
-- [ ] **In scope only** - nothing from spec section 2; temptations were written to `LATER.md` instead.
-- [ ] **Local only** - no network calls to any Loam backend, no daemon.
-- [ ] **OS-portable** - `filepath.Join` for paths, no unix-only syscalls; CI cross-compile job is green.
+- [ ] `make ci` passes (gofmt, go vet, go test, go build)
+- [ ] `golangci-lint run ./...` reports no issues
+- [ ] New behaviour has a test that would fail without this change
+- [ ] Exported functions and types have doc comments
+- [ ] `go mod tidy` leaves `go.mod` and `go.sum` unchanged
+
+---
+
+The sections below only apply to some changes. **Delete the ones that don't
+apply to yours** — most PRs need none of them.
+
+<details>
+<summary><b>If you changed how data is generated or loaded</b></summary>
+
+- [ ] Rows still go in with `pgx.CopyFrom`, never row-by-row `INSERT` — the speed is the whole point, and the integration tests enforce a per-row time budget
+- [ ] Every foreign key value still comes from a parent row that was actually generated, never an invented one
+- [ ] Ran the integration tests against a real Postgres (see [CONTRIBUTING.md](../docs/CONTRIBUTING.md#integration--a-live-postgres-holding-the-fixture-schema))
+
+</details>
+
+<details>
+<summary><b>If you changed the CLI output, or how environments start and stop</b></summary>
+
+- [ ] No password appears in any printed URL, or in `.loam/state.json`
+- [ ] `loam up` still works in a repo with no `loam.yml` — a missing config file is not an error
+- [ ] Ran the end-to-end tests: `go test -tags=e2e -v -timeout 15m .`
+
+</details>
+
+<details>
+<summary><b>If you added a dependency</b></summary>
+
+- [ ] Explained above why an existing dependency or the standard library would not do
+
+Loam keeps a deliberately small dependency set. New ones are not forbidden,
+but they need a reason.
+
+</details>
